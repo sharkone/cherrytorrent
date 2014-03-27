@@ -22,6 +22,12 @@ class DownloaderPlugin(cherrypy.process.plugins.SimplePlugin):
         self.bus.log('[Downloader] Listening on {0}:{1}'.format(self.torrent_config['low_port'], self.torrent_config['high_port']))
         self.session.listen_on(self.torrent_config['low_port'], self.torrent_config['high_port'])
 
+        self.bus.log('[Downloader] Setting session settings')
+        if self.torrent_config['download_rate'] > 0:
+            self.session.settings().download_rate_limit = self.torrent_config['download_rate'] * 1024
+        if self.torrent_config['upload_rate'] > 0:
+            self.session.settings().upload_rate_limit = self.torrent_config['upload_rate'] * 1024
+
         self.bus.log('[Downloader] Adding requested torrent')
         add_torrent_params                 = {}
         add_torrent_params['url']          = self.torrent_config['uri']
@@ -39,7 +45,7 @@ class DownloaderPlugin(cherrypy.process.plugins.SimplePlugin):
     def stop(self):
         self.bus.log('[Downloader] Stopping')
         if self.torrent_handle:
-            if not self.keep_files:
+            if not self.torrent_config['keep_files']:
                 self.bus.log('[Downloader] Removing downloaded files')
                 self.session.set_alert_mask(libtorrent.alert.category_t.storage_notification)
                 self.session.remove_torrent(self.torrent_handle, libtorrent.options_t.delete_files)
