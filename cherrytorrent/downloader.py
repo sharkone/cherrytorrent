@@ -5,14 +5,10 @@ import libtorrent
 ################################################################################
 class DownloaderPlugin(cherrypy.process.plugins.SimplePlugin):
     ############################################################################
-    def __init__(self, bus, low_port, high_port, uri, download_dir, keep_files):
+    def __init__(self, bus, torrent_config):
         cherrypy.process.plugins.SimplePlugin.__init__(self, bus)
         
-        self.low_port       = low_port
-        self.high_port      = high_port
-        self.uri            = uri
-        self.download_dir   = download_dir
-        self.keep_files     = keep_files
+        self.torrent_config = torrent_config
         self.torrent_handle = None
 
     ############################################################################
@@ -23,13 +19,13 @@ class DownloaderPlugin(cherrypy.process.plugins.SimplePlugin):
         self.session.start_lsd()
         self.session.start_upnp()
         self.session.start_natpmp()
-        self.bus.log('[Downloader] Listening on {0}:{1}'.format(self.low_port, self.high_port))
-        self.session.listen_on(self.low_port, self.high_port)
+        self.bus.log('[Downloader] Listening on {0}:{1}'.format(self.torrent_config['low_port'], self.torrent_config['high_port']))
+        self.session.listen_on(self.torrent_config['low_port'], self.torrent_config['high_port'])
 
         self.bus.log('[Downloader] Adding requested torrent')
         add_torrent_params                 = {}
-        add_torrent_params['url']          = self.uri
-        add_torrent_params['save_path']    = self.download_dir
+        add_torrent_params['url']          = self.torrent_config['uri']
+        add_torrent_params['save_path']    = self.torrent_config['download_dir']
         add_torrent_params['storage_mode'] = libtorrent.storage_mode_t.storage_mode_sparse
 
         self.torrent_handle = self.session.add_torrent(add_torrent_params)

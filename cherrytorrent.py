@@ -16,13 +16,20 @@ def main():
     arg_parser.add_argument('-tk', '--torrent-keep-files', default=False, help='Keep downloaded files upon stopping')
     args = arg_parser.parse_args()
 
-    server = cherrytorrent.server.Server(args.http_port,
-                                         args.http_inactivity_timeout,
-                                         args.torrent_low_port,
-                                         args.torrent_high_port,
-                                         args.torrent_uri,
-                                         args.torrent_download_dir,
-                                         args.torrent_keep_files)
+    http_config    = {
+                        'port':                 args.http_port,
+                        'inactivity_timeout':   args.http_inactivity_timeout
+                     }
+
+    torrent_config = {
+                        'uri':          args.torrent_uri,
+                        'low_port':     args.torrent_low_port,
+                        'high_port':    args.torrent_high_port,
+                        'download_dir': args.torrent_download_dir,
+                        'keep_files':   args.torrent_keep_files
+                     }
+    
+    server = cherrytorrent.server.Server(http_config, torrent_config)
     server.run()
 
 ################################################################################
