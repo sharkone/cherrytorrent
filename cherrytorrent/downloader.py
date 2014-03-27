@@ -23,7 +23,7 @@ class DownloaderPlugin(cherrypy.process.plugins.SimplePlugin):
         self.session.start_lsd()
         self.session.start_upnp()
         self.session.start_natpmp()
-        self.bus.log('[Downloader] Listening on {0}->{1}'.format(self.low_port, self.high_port))
+        self.bus.log('[Downloader] Listening on {0}:{1}'.format(self.low_port, self.high_port))
         self.session.listen_on(self.low_port, self.high_port)
 
         self.bus.log('[Downloader] Adding requested torrent')
@@ -44,6 +44,7 @@ class DownloaderPlugin(cherrypy.process.plugins.SimplePlugin):
         self.bus.log('[Downloader] Stopping')
         if self.torrent_handle:
             if not self.keep_files:
+                self.bus.log('[Downloader] Removing downloaded files')
                 self.session.set_alert_mask(libtorrent.alert.category_t.storage_notification)
                 self.session.remove_torrent(self.torrent_handle, libtorrent.options_t.delete_files)
                 self.session.wait_for_alert(30)
