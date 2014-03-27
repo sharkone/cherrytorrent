@@ -4,9 +4,11 @@ import libtorrent
 ################################################################################
 class Downloader:
     ############################################################################
-    def __init__(self, uri, download_dir):
-        self.uri          = uri
-        self.download_dir = download_dir
+    def __init__(self, uri, download_dir, keep_files):
+        self.uri            = uri
+        self.download_dir   = download_dir
+        self.keep_files     = keep_files
+        self.torrent_handle = None
 
     ############################################################################
     def start(self):
@@ -31,6 +33,12 @@ class Downloader:
 
     ############################################################################
     def stop(self):
+        if self.torrent_handle:
+            if not self.keep_files:
+                self.session.set_alert_mask(libtorrent.alert.category_t.storage_notification)
+                self.session.remove_torrent(self.torrent_handle, libtorrent.options_t.delete_files)
+                self.session.wait_for_alert(30)
+
         self.session.stop_natpmp()
         self.session.stop_upnp()
         self.session.stop_lsd()

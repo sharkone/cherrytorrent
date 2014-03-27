@@ -43,9 +43,9 @@ class InactivityMonitor(cherrypy.process.plugins.Monitor):
 ################################################################################
 class DownloaderPlugin(cherrypy.process.plugins.SimplePlugin):
     ############################################################################
-    def __init__(self, bus, magnet, download_dir):
+    def __init__(self, bus, magnet, download_dir, keep_files):
         cherrypy.process.plugins.SimplePlugin.__init__(self, bus)
-        self.downloader = downloader.Downloader(magnet, download_dir)
+        self.downloader = downloader.Downloader(magnet, download_dir, keep_files)
 
     ############################################################################
     def start(self):
@@ -62,13 +62,13 @@ class DownloaderPlugin(cherrypy.process.plugins.SimplePlugin):
 ################################################################################
 class Server:
     ############################################################################
-    def __init__(self, http_port, inactivity_timeout, uri, download_dir):
+    def __init__(self, http_port, inactivity_timeout, uri, download_dir, keep_files):
         self.port = http_port
 
         cherrypy.engine.inactivity_monitor = InactivityMonitor(cherrypy.engine, inactivity_timeout)
         cherrypy.engine.inactivity_monitor.subscribe()
 
-        cherrypy.engine.downloader_plugin = DownloaderPlugin(cherrypy.engine, uri, download_dir)
+        cherrypy.engine.downloader_plugin = DownloaderPlugin(cherrypy.engine, uri, download_dir, keep_files)
         cherrypy.engine.downloader_plugin.subscribe()
         
     ############################################################################

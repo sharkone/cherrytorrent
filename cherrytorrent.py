@@ -11,9 +11,10 @@ def main():
     arg_parser.add_argument('-p', '--http-port', default=8080, help='Port used for HTTP server')
     arg_parser.add_argument('-d', '--download-dir', default='.', help='Directory to use for downloading')
     arg_parser.add_argument('-t', '--inactivity-timeout', default=30, help='Inactivity timeout')
+    arg_parser.add_argument('-k', '--keep-files', default=False, help='Keep downloaded files upon stopping')
     args = arg_parser.parse_args()
 
-    server = cherrytorrent.server.Server(int(args.http_port), args.inactivity_timeout, args.uri, args.download_dir)
+    server = cherrytorrent.server.Server(int(args.http_port), args.inactivity_timeout, args.uri, args.download_dir, args.keep_files)
     server.run()
 
 ################################################################################
