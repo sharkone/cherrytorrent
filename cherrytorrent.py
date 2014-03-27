@@ -13,7 +13,7 @@ def main():
     arg_parser.add_argument('-t', '--inactivity-timeout', default=30, help='Inactivity timeout')
     args = arg_parser.parse_args()
 
-    server = cherrytorrent.server.Server(args.magnet, int(args.http_port), args.download_dir, args.inactivity_timeout)
+    server = cherrytorrent.server.Server(int(args.http_port), args.inactivity_timeout, args.magnet, args.download_dir)
     server.run()
 
 ################################################################################

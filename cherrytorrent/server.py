@@ -1,6 +1,7 @@
 ################################################################################
 import cherrypy
 import datetime
+import downloader
 
 ################################################################################
 class ConnectionCounterTool(cherrypy.Tool):
@@ -40,13 +41,35 @@ class InactivityMonitor(cherrypy.process.plugins.Monitor):
             cherrypy.engine.exit()
 
 ################################################################################
+class DownloaderPlugin(cherrypy.process.plugins.SimplePlugin):
+    ############################################################################
+    def __init__(self, bus, magnet, download_dir):
+        cherrypy.process.plugins.SimplePlugin.__init__(self, bus)
+        self.downloader = downloader.Downloader(magnet, download_dir)
+
+    ############################################################################
+    def start(self):
+        self.downloader.start()
+
+    ############################################################################
+    def stop(self):
+        self.downloader.stop()
+
+    ############################################################################
+    def get_status(self):
+        return self.downloader.get_status()
+
+################################################################################
 class Server:
     ############################################################################
-    def __init__(self, magnet, http_port, download_dir, inactivity_timeout):
+    def __init__(self, http_port, inactivity_timeout, magnet, download_dir):
         self.port = http_port
 
         cherrypy.engine.inactivity_monitor = InactivityMonitor(cherrypy.engine, inactivity_timeout)
         cherrypy.engine.inactivity_monitor.subscribe()
+
+        cherrypy.engine.downloader_plugin = DownloaderPlugin(cherrypy.engine, magnet, download_dir)
+        cherrypy.engine.downloader_plugin.subscribe()
         
     ############################################################################
     def run(self):
@@ -61,7 +84,7 @@ class ServerRoot:
     @cherrypy.expose
     @cherrypy.tools.connection_counter()
     def index(self):
-        return 'cherrytorrent running'
+        return 'cherrytorrent running: {0}'.format(cherrypy.engine.downloader_plugin.get_status())
 
     ############################################################################
     @cherrypy.expose
