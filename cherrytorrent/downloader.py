@@ -75,5 +75,14 @@ class DownloaderPlugin(cherrypy.process.plugins.SimplePlugin):
 
     ############################################################################
     def get_status(self):
-        status    = self.torrent_handle.status()
-        return { 'state': status.state, 'num_seeds': status.num_seeds, 'num_peers': status.num_peers, 'progress': status.progress, 'download_rate': status.download_rate, 'upload_rate': status.upload_rate }
+        status = self.torrent_handle.status()
+        return {
+                 'state':           status.state,
+                 'progress':        status.progress,
+                 'download_rate':   status.download_rate,
+                 'upload_rate':     status.upload_rate,
+                 'num_seeds':       status.num_seeds,
+                 'num_peers':       status.num_peers,
+                 'total_seeds':     status.num_complete,
+                 'total_peers':     status.num_incomplete
+               }
