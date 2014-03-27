@@ -54,13 +54,13 @@ class InactivityMonitor(cherrypy.process.plugins.Monitor):
 ################################################################################
 class Server:
     ############################################################################
-    def __init__(self, http_port, inactivity_timeout, uri, download_dir, keep_files):
+    def __init__(self, http_port, http_inactivity_timeout, torrent_low_port, torrent_high_port, torrent_uri, torrent_download_dir, torrent_keep_files):
         self.port = http_port
 
-        cherrypy.engine.inactivity_monitor = InactivityMonitor(cherrypy.engine, inactivity_timeout)
+        cherrypy.engine.inactivity_monitor = InactivityMonitor(cherrypy.engine, http_inactivity_timeout)
         cherrypy.engine.inactivity_monitor.subscribe()
 
-        cherrypy.engine.downloader_plugin = downloader.DownloaderPlugin(cherrypy.engine, uri, download_dir, keep_files)
+        cherrypy.engine.downloader_plugin = downloader.DownloaderPlugin(cherrypy.engine, torrent_low_port, torrent_high_port, torrent_uri, torrent_download_dir, torrent_keep_files)
         cherrypy.engine.downloader_plugin.subscribe()
         
     ############################################################################

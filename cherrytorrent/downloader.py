@@ -5,9 +5,11 @@ import libtorrent
 ################################################################################
 class DownloaderPlugin(cherrypy.process.plugins.SimplePlugin):
     ############################################################################
-    def __init__(self, bus, uri, download_dir, keep_files):
+    def __init__(self, bus, low_port, high_port, uri, download_dir, keep_files):
         cherrypy.process.plugins.SimplePlugin.__init__(self, bus)
         
+        self.low_port       = low_port
+        self.high_port      = high_port
         self.uri            = uri
         self.download_dir   = download_dir
         self.keep_files     = keep_files
@@ -21,8 +23,8 @@ class DownloaderPlugin(cherrypy.process.plugins.SimplePlugin):
         self.session.start_lsd()
         self.session.start_upnp()
         self.session.start_natpmp()
-        self.bus.log('[Downloader] Listening on {0}->{1}'.format(6881, 6889))
-        self.session.listen_on(6881, 6891)
+        self.bus.log('[Downloader] Listening on {0}->{1}'.format(self.low_port, self.high_port))
+        self.session.listen_on(self.low_port, self.high_port)
 
         self.bus.log('[Downloader] Adding requested torrent')
         add_torrent_params                 = {}
