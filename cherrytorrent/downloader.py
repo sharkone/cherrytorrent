@@ -92,3 +92,13 @@ class DownloaderPlugin(cherrypy.process.plugins.SimplePlugin):
         status = self.torrent_handle.status()
         if status.state <= libtorrent.torrent_status.states.downloading:
             return None
+
+        torrent_info = self.torrent_handle.get_torrent_status()
+
+        video_file = None
+        for file in torrent_info.files:
+            if file.path.endswith('.mkv') or file.path.endswith('.mp4') or file.path.endswith('.avi'):
+                if not video_file or video_file.size < file.size:
+                    video_file = file
+
+        return video_file
