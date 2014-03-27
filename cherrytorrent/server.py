@@ -3,6 +3,9 @@ import cherrypy
 import datetime
 import downloader
 import json
+import mimetypes
+
+from cherrypy.lib.static import serve_fileobj
 
 ################################################################################
 class ConnectionCounterTool(cherrypy.Tool):
@@ -78,7 +81,41 @@ class ServerRoot:
     @cherrypy.expose
     @cherrypy.tools.connection_counter()
     def index(self):
+        return 'cherrytorrent running'
+
+    ############################################################################
+    @cherrypy.expose
+    @cherrypy.tools.connection_counter()
+    def status(self):
         return json.dumps(cherrypy.engine.downloader_plugin.get_status())
+
+    ############################################################################
+    @cherrypy.expose
+    @cherrypy.tools.connection_counter()
+    def download(self):
+        video_file = cherrypy.engine.downloader_plugin.get_video_file()
+        if not video_file:
+            return 'Not ready!'
+
+        return serve_fileobj(video_file, content_type='application/x-download', content_length=video_file.size, disposition='attachment', name=os.path.basename(video_file.path))
+
+    ############################################################################
+    @cherrypy.expose
+    @cherrypy.tools.connection_counter()
+    def video(self):
+        video_file = cherrypy.engine.downloader_plugin.get_video_file()
+        if not video_file:
+            return 'Not ready!'
+
+        content_type = mimetypes.types_map.get(os.path.splitext(video_file.path), None)
+        
+        if not content_type:
+            if video_file['path'].endswith('.mkv'):
+                content_type = 'video/x-matroska'
+            elif video_file['path'].endswith('.mp4'):
+                content_type = 'video/mp4'
+
+        return serve_fileobj(video_file, content_type=content_type, content_length=video_file.size, name=os.path.basename(video_file.path))
 
     ############################################################################
     @cherrypy.expose

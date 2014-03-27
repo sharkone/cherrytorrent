@@ -86,3 +86,9 @@ class DownloaderPlugin(cherrypy.process.plugins.SimplePlugin):
                  'total_seeds':     status.num_complete,
                  'total_peers':     status.num_incomplete
                }
+
+    ############################################################################
+    def get_video_file(self):
+        status = self.torrent_handle.status()
+        if status.state <= libtorrent.torrent_status.states.downloading:
+            return None
