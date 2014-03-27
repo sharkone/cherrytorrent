@@ -1,10 +1,13 @@
 ################################################################################
+import cherrypy
 import libtorrent
 
 ################################################################################
-class Downloader:
+class DownloaderPlugin(cherrypy.process.plugins.SimplePlugin):
     ############################################################################
-    def __init__(self, uri, download_dir, keep_files):
+    def __init__(self, bus, uri, download_dir, keep_files):
+        cherrypy.process.plugins.SimplePlugin.__init__(self, bus)
+        
         self.uri            = uri
         self.download_dir   = download_dir
         self.keep_files     = keep_files
@@ -12,13 +15,16 @@ class Downloader:
 
     ############################################################################
     def start(self):
+        self.bus.log('[Downloader] Starting')
         self.session = libtorrent.session()
         self.session.start_dht()
         self.session.start_lsd()
         self.session.start_upnp()
         self.session.start_natpmp()
+        self.bus.log('[Downloader] Listening on {0}->{1}'.format(6881, 6889))
         self.session.listen_on(6881, 6891)
 
+        self.bus.log('[Downloader] Adding requested torrent')
         add_torrent_params                 = {}
         add_torrent_params['url']          = self.uri
         add_torrent_params['save_path']    = self.download_dir
@@ -33,6 +39,7 @@ class Downloader:
 
     ############################################################################
     def stop(self):
+        self.bus.log('[Downloader] Stopping')
         if self.torrent_handle:
             if not self.keep_files:
                 self.session.set_alert_mask(libtorrent.alert.category_t.storage_notification)
