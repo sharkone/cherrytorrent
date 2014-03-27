@@ -2,6 +2,7 @@
 import cherrypy
 import datetime
 import downloader
+import json
 
 ################################################################################
 class ConnectionCounterTool(cherrypy.Tool):
@@ -77,7 +78,7 @@ class ServerRoot:
     @cherrypy.expose
     @cherrypy.tools.connection_counter()
     def index(self):
-        return 'cherrytorrent running: {0}'.format(cherrypy.engine.downloader_plugin.get_status())
+        return json.dumps(cherrypy.engine.downloader_plugin.get_status())
 
     ############################################################################
     @cherrypy.expose
