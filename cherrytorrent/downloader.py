@@ -23,6 +23,14 @@ class DownloaderPlugin(cherrypy.process.plugins.SimplePlugin):
         self.session.listen_on(self.torrent_config['low_port'], self.torrent_config['high_port'])
 
         self.bus.log('[Downloader] Setting session settings')
+        self.session.settings().announce_to_all_tiers = True
+        self.session.settings().announce_to_all_trackers = True
+        self.session.settings().connection_speed = 100
+        self.session.settings().peer_connect_timeout = 2
+        self.session.settings().rate_limit_ip_overhead = True
+        self.session.settings().request_timeout = 5
+        self.session.settings().torrent_connect_boost = 100
+
         if self.torrent_config['download_rate'] > 0:
             self.session.settings().download_rate_limit = self.torrent_config['download_rate'] * 1024
         if self.torrent_config['upload_rate'] > 0:
