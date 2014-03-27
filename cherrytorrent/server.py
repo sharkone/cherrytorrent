@@ -110,7 +110,9 @@ class ServerRoot:
         content_type = mimetypes.types_map.get(os.path.splitext(video_file.path), None)
         
         if not content_type:
-            if video_file['path'].endswith('.mkv'):
+            if video_file['path'].endswith('.avi'):
+                content_type = 'video/avi'
+            elif video_file['path'].endswith('.mkv'):
                 content_type = 'video/x-matroska'
             elif video_file['path'].endswith('.mp4'):
                 content_type = 'video/mp4'
