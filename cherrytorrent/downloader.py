@@ -1,5 +1,6 @@
 ################################################################################
 import cherrypy
+import filewrapper
 import libtorrent
 
 ################################################################################
@@ -101,4 +102,5 @@ class DownloaderPlugin(cherrypy.process.plugins.SimplePlugin):
                 if not video_file or video_file.size < file.size:
                     video_file = file
 
-        return video_file
+        if video_file:
+            return filewrapper.FileWrapper(self.torrent_handle.save_path, video_file)
