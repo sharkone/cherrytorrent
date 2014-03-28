@@ -75,11 +75,20 @@ class DownloaderPlugin(cherrypy.process.plugins.Monitor):
                 self.session.set_alert_mask(libtorrent.alert.category_t.storage_notification)
                 self.session.remove_torrent(self.torrent_handle, libtorrent.options_t.delete_files)
                 
-                while True:
-                    self.session.wait_for_alert(5000)
+                torrent_removed = False
+                while not torrent_removed:
                     alert = self.session.pop_alert()
-                    if alert and alert.what() in ('cache_flushed_alert', 'torrent_deleted_alert'):
-                        break
+                    while alert:
+                        if alert.what() in ('cache_flushed_alert', 'torrent_deleted_alert'):
+                            torrent_removed = True
+                            break
+                        alert = self.session.pop_alert()
+
+                    if not torrent_removed:
+                        alert = self.session.wait_for_alert(100)
+                        if alert:
+                            if alert.what() in ('cache_flushed_alert', 'torrent_deleted_alert'):
+                                torrent_removed = True
 
         self.session.stop_natpmp()
         self.session.stop_upnp()

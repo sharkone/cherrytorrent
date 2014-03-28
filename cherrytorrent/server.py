@@ -53,8 +53,9 @@ class InactivityMonitor(cherrypy.process.plugins.Monitor):
     ############################################################################
     def _check_for_timeout(self):
         if not cherrypy.tools.connection_counter.connection_count and (datetime.datetime.now() - cherrypy.tools.connection_counter.last_connection_time) >= datetime.timedelta(seconds=self.timeout):
-            self.bus.log('[InactivityMonitor] {0} second timeout exceeded'.format(self.timeout))
-            cherrypy.engine.exit()
+            if cherrypy.engine.state == cherrypy.engine.states.STARTED:
+                self.bus.log('[InactivityMonitor] {0} second timeout exceeded'.format(self.timeout))
+                cherrypy.engine.exit()
 
 ################################################################################
 class Server:
