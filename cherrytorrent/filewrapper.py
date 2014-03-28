@@ -18,8 +18,7 @@ class FileWrapper(io.RawIOBase):
         while not os.path.isfile(self.path) or os.path.getsize(self.path) != self.size:
             time.sleep(0.1)
 
-        self.file         = open(self.path, 'rb')
-        self.virtual_read = False
+        self.file = open(self.path, 'rb')
 
     def fileno(self):
         return self.file.fileno()
@@ -32,19 +31,11 @@ class FileWrapper(io.RawIOBase):
         elif whence == io.SEEK_END:
             new_position = self.size + offset
 
-        if (self.size - new_position) < self.torrent_handle.get_torrent_info().piece_length():
-            self.virtual_read = True
-            return
-
         piece_index, piece_offset = self._piece_from_offset(new_position)
         self._wait_for_piece(piece_index)
         return self.file.seek(offset, whence)
         
     def read(self, size=-1):
-        if self.virtual_read:
-            self.virtual_read = False
-            return ""
-
         current_offset = self.file.tell()
 
         if size == -1:
