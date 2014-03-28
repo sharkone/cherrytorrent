@@ -14,14 +14,10 @@ class FileWrapper(io.RawIOBase):
         self.path = os.path.join(self.torrent_handle.save_path(), torrent_file.path)
         self.size = torrent_file.size
 
-        while not os.path.isfile(self.path) or os.path.getsize(self.path) != self.size:
+        while not os.path.isfile(self.path):
             time.sleep(0.1)
 
         self.file = open(self.path, 'rb')
-
-    ############################################################################
-    def fileno(self):
-        return self.file.fileno()
 
     ############################################################################
     def seek(self, offset, whence=io.SEEK_SET):

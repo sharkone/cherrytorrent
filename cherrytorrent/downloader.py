@@ -97,7 +97,8 @@ class DownloaderPlugin(cherrypy.process.plugins.Monitor):
                  'num_seeds':       status.num_seeds,
                  'num_peers':       status.num_peers,
                  'total_seeds':     status.num_complete,
-                 'total_peers':     status.num_incomplete
+                 'total_peers':     status.num_incomplete,
+                 'num_pieces':      status.num_pieces
                }
 
     ############################################################################
