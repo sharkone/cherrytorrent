@@ -67,7 +67,12 @@ class DownloaderPlugin(cherrypy.process.plugins.SimplePlugin):
                 self.bus.log('[Downloader] Removing downloaded files')
                 self.session.set_alert_mask(libtorrent.alert.category_t.storage_notification)
                 self.session.remove_torrent(self.torrent_handle, libtorrent.options_t.delete_files)
-                self.session.wait_for_alert(30)
+                
+                while True:
+                    self.session.wait_for_alert(5000)
+                    alert = self.session.pop_alert()
+                    if alert and alert.what() in ('cache_flushed_alert', 'torrent_deleted_alert'):
+                        break
 
         self.session.stop_natpmp()
         self.session.stop_upnp()
@@ -80,8 +85,8 @@ class DownloaderPlugin(cherrypy.process.plugins.SimplePlugin):
         return {
                  'state':           status.state,
                  'progress':        status.progress,
-                 'download_rate':   status.download_rate,
-                 'upload_rate':     status.upload_rate,
+                 'download_rate':   status.download_rate / 1024,
+                 'upload_rate':     status.upload_rate / 1024,
                  'num_seeds':       status.num_seeds,
                  'num_peers':       status.num_peers,
                  'total_seeds':     status.num_complete,
@@ -91,16 +96,16 @@ class DownloaderPlugin(cherrypy.process.plugins.SimplePlugin):
     ############################################################################
     def get_video_file(self):
         status = self.torrent_handle.status()
-        if status.state <= libtorrent.torrent_status.states.downloading:
+        if int(status.state) < int(libtorrent.torrent_status.states.downloading):
             return None
 
-        torrent_info = self.torrent_handle.get_torrent_status()
+        torrent_info = self.torrent_handle.get_torrent_info()
 
         video_file = None
-        for file in torrent_info.files:
+        for file in torrent_info.files():
             if file.path.endswith('.mkv') or file.path.endswith('.mp4') or file.path.endswith('.avi'):
-                if not video_file or video_file.size < file.size:
+                if not video_file or video_file.size() < file.size():
                     video_file = file
 
         if video_file:
-            return filewrapper.FileWrapper(self.torrent_handle.save_path, video_file)
+            return filewrapper.FileWrapper(self.torrent_handle, video_file)

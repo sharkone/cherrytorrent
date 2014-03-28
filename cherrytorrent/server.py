@@ -4,6 +4,7 @@ import datetime
 import downloader
 import json
 import mimetypes
+import os
 
 from cherrypy.lib.static import serve_fileobj
 
@@ -97,7 +98,7 @@ class ServerRoot:
         if not video_file:
             return 'Not ready!'
 
-        return serve_fileobj(video_file, content_type='application/x-download', content_length=video_file.size, disposition='attachment', name=os.path.basename(video_file.path))
+        return serve_fileobj(video_file, content_type='application/x-download', disposition='attachment', name=os.path.basename(video_file.path))
 
     ############################################################################
     @cherrypy.expose
@@ -110,14 +111,14 @@ class ServerRoot:
         content_type = mimetypes.types_map.get(os.path.splitext(video_file.path), None)
         
         if not content_type:
-            if video_file['path'].endswith('.avi'):
+            if video_file.path.endswith('.avi'):
                 content_type = 'video/avi'
-            elif video_file['path'].endswith('.mkv'):
+            elif video_file.path.endswith('.mkv'):
                 content_type = 'video/x-matroska'
-            elif video_file['path'].endswith('.mp4'):
+            elif video_file.path.endswith('.mp4'):
                 content_type = 'video/mp4'
 
-        return serve_fileobj(video_file, content_type=content_type, content_length=video_file.size, name=os.path.basename(video_file.path))
+        return serve_fileobj(video_file, content_type=content_type, name=os.path.basename(video_file.path), debug=True)
 
     ############################################################################
     @cherrypy.expose

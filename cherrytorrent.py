@@ -16,7 +16,7 @@ def main():
     arg_parser.add_argument('-tul', '--torrent-upload-rate', type=int, default=0, help='Maximum upload rate in kB/s (0: Unlimited)')
     arg_parser.add_argument('-te',  '--torrent-encryption', default=1, help='Encryption: 0: Forced 1: Enabled (default) 2:Disabled)')
     arg_parser.add_argument('-td',  '--torrent-download-dir', default='.', help='Directory to use for downloading')
-    arg_parser.add_argument('-tk',  '--torrent-keep-files', default=False, help='Keep downloaded files upon stopping')
+    arg_parser.add_argument('-tk',  '--torrent-keep-files', dest='torrent_keep_files', action='store_true', help='Keep downloaded files upon stopping')
     args = arg_parser.parse_args()
 
     http_config    = {
