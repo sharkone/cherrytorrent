@@ -2,13 +2,14 @@
 import cherrypy
 import filewrapper
 import libtorrent
+import utils
 
 ################################################################################
-class DownloaderPlugin(cherrypy.process.plugins.SimplePlugin):
+class DownloaderPlugin(cherrypy.process.plugins.Monitor):
     ############################################################################
     def __init__(self, bus, torrent_config):
-        cherrypy.process.plugins.SimplePlugin.__init__(self, bus)
-        
+        cherrypy.process.plugins.Monitor.__init__(self, bus, self._set_piece_priorities, frequency=1)
+
         self.torrent_config = torrent_config
         self.torrent_handle = None
 
@@ -59,9 +60,15 @@ class DownloaderPlugin(cherrypy.process.plugins.SimplePlugin):
         if torrent_handle_status.error:
             raise RuntimeError(torrent_handle_status.error)
 
+        self.piece_priorities_set = False
+        cherrypy.process.plugins.Monitor.start(self)
+
     ############################################################################
     def stop(self):
         self.bus.log('[Downloader] Stopping')
+        
+        cherrypy.process.plugins.Monitor.stop(self)
+
         if self.torrent_handle:
             if not self.torrent_config['keep_files']:
                 self.bus.log('[Downloader] Removing downloaded files')
@@ -95,17 +102,39 @@ class DownloaderPlugin(cherrypy.process.plugins.SimplePlugin):
 
     ############################################################################
     def get_video_file(self):
+        video_file = self._get_video_torrent_file()
+
+        if video_file:
+            return filewrapper.FileWrapper(self.torrent_handle, video_file)
+
+    ############################################################################
+    def _get_video_torrent_file(self):
         status = self.torrent_handle.status()
         if int(status.state) < int(libtorrent.torrent_status.states.downloading):
             return None
 
-        torrent_info = self.torrent_handle.get_torrent_info()
-
         video_file = None
-        for file in torrent_info.files():
+        for file in self.torrent_handle.get_torrent_info().files():
             if file.path.endswith('.mkv') or file.path.endswith('.mp4') or file.path.endswith('.avi'):
                 if not video_file or video_file.size() < file.size():
                     video_file = file
 
-        if video_file:
-            return filewrapper.FileWrapper(self.torrent_handle, video_file)
+        return video_file
+
+    ############################################################################
+    def _set_piece_priorities(self):
+        try:
+            if not self.piece_priorities_set:
+                video_file = self._get_video_torrent_file()
+                if video_file:
+                    start_piece_index, start_piece_offset = utils.piece_from_offset(self.torrent_handle, video_file.offset)
+                    end_piece_index,   end_piece_offset   = utils.piece_from_offset(self.torrent_handle, video_file.offset + video_file.size)
+
+                    self.bus.log('[Downloader] Setting pieces priority for {0}: {1} {2}'.format(video_file.path, start_piece_index, end_piece_index))
+
+                    self.torrent_handle.piece_priority(start_piece_index, 7)
+                    self.torrent_handle.piece_priority(end_piece_index, 7)
+               
+                    self.piece_priorities_set = True
+        except:
+            pass

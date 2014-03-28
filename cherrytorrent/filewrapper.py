@@ -2,12 +2,11 @@
 import io
 import os
 import time
-
-################################################################################
-VIRTUAL_READ_THRESHOLD = 100 * 1024
+import utils
 
 ################################################################################
 class FileWrapper(io.RawIOBase):
+    ############################################################################
     def __init__(self, torrent_handle, torrent_file):
         self.torrent_handle = torrent_handle
         self.torrent_file   = torrent_file
@@ -20,9 +19,11 @@ class FileWrapper(io.RawIOBase):
 
         self.file = open(self.path, 'rb')
 
+    ############################################################################
     def fileno(self):
         return self.file.fileno()
 
+    ############################################################################
     def seek(self, offset, whence=io.SEEK_SET):
         if whence == io.SEEK_SET:
             new_position = offset
@@ -31,10 +32,11 @@ class FileWrapper(io.RawIOBase):
         elif whence == io.SEEK_END:
             new_position = self.size + offset
 
-        piece_index, piece_offset = self._piece_from_offset(new_position)
+        piece_index, piece_offset = utils.piece_from_offset(self.torrent_handle, self.torrent_file.offset + new_position)
         self._wait_for_piece(piece_index)
         return self.file.seek(offset, whence)
         
+    ############################################################################
     def read(self, size=-1):
         current_offset = self.file.tell()
 
@@ -42,23 +44,20 @@ class FileWrapper(io.RawIOBase):
             size = self.size - current_offset
         
         if size <= self.torrent_handle.get_torrent_info().piece_length():
-            piece_index, piece_offset = self._piece_from_offset(current_offset + size)
+            piece_index, piece_offset = utils.piece_from_offset(self.torrent_handle, self.torrent_file.offset + current_offset + size)
             self._wait_for_piece(piece_index)
             return self.file.read(size) 
 
-        print 'Reading more than one piece...'
+        #print 'Reading more than one piece...'
         # TODO: Should wait/read piece one by one and concat result
         return self.file.read(size)
 
+    ############################################################################
     def close(self):
         return self.file.close()
 
-    def _piece_from_offset(self, offset):
-        piece_length = self.torrent_handle.get_torrent_info().piece_length()
-        piece_index  = (self.torrent_file.offset + offset) / piece_length
-        piece_offset = (self.torrent_file.offset + offset) % piece_length
-        return piece_index, piece_offset
-
+    ############################################################################
     def _wait_for_piece(self, piece_index):
+        #print 'Waiting for piece: {0}'.format(piece_index)
         while not self.torrent_handle.have_piece(piece_index):
             time.sleep(0.1)
