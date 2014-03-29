@@ -5,8 +5,7 @@ import downloader
 import json
 import mimetypes
 import os
-
-from cherrypy.lib.static import serve_fileobj
+import static
 
 ################################################################################
 class ConnectionCounterTool(cherrypy.Tool):
@@ -99,7 +98,7 @@ class ServerRoot:
         if not video_file:
             return 'Not ready!'
 
-        return serve_fileobj(video_file, content_length=video_file.size, content_type='application/x-download', disposition='attachment', name=os.path.basename(video_file.path))
+        return static.serve_fileobj(video_file, content_length=video_file.size, content_type='application/x-download', disposition='attachment', name=os.path.basename(video_file.path))
 
     ############################################################################
     @cherrypy.expose
@@ -119,7 +118,7 @@ class ServerRoot:
             elif video_file.path.endswith('.mp4'):
                 content_type = 'video/mp4'
 
-        return serve_fileobj(video_file, content_length=video_file.size, content_type=content_type, name=os.path.basename(video_file.path))
+        return static.serve_fileobj(video_file, content_length=video_file.size, content_type=content_type, name=os.path.basename(video_file.path))
 
     ############################################################################
     @cherrypy.expose
