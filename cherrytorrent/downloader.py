@@ -2,16 +2,19 @@
 import cherrypy
 import filewrapper
 import libtorrent
+import math
 import utils
 
 ################################################################################
 class DownloaderPlugin(cherrypy.process.plugins.Monitor):
     ############################################################################
     def __init__(self, bus, torrent_config):
-        cherrypy.process.plugins.Monitor.__init__(self, bus, self._set_piece_priorities, frequency=1)
+        cherrypy.process.plugins.Monitor.__init__(self, bus, self._check_for_downloading, frequency=1)
 
-        self.torrent_config = torrent_config
-        self.torrent_handle = None
+        self.torrent_config      = torrent_config
+        self.torrent_handle      = None
+        self.torrent_downloading = False
+        self.torrent_video_file  = None
 
     ############################################################################
     def start(self):
@@ -97,25 +100,63 @@ class DownloaderPlugin(cherrypy.process.plugins.Monitor):
 
     ############################################################################
     def get_status(self):
+        result = { 'session': {}, 'video_file':{} }
+
         status = self.torrent_handle.status()
-        return {
-                 'state':           status.state,
-                 'progress':        status.progress,
-                 'download_rate':   status.download_rate / 1024,
-                 'upload_rate':     status.upload_rate / 1024,
-                 'num_seeds':       status.num_seeds,
-                 'num_peers':       status.num_peers,
-                 'total_seeds':     status.num_complete,
-                 'total_peers':     status.num_incomplete,
-                 'num_pieces':      status.num_pieces
-               }
+        result['session']['state']         = status.state
+        result['session']['state_index']   = int(status.state)
+        result['session']['progress']      = math.trunc(status.progress * 100.0) / 100.0
+        result['session']['download_rate'] = status.download_rate / 1024
+        result['session']['upload_rate']   = status.upload_rate / 1024
+        result['session']['num_seeds']     = status.num_seeds
+        result['session']['total_seeds']   = status.num_complete
+        result['session']['num_peers']     = status.num_peers
+        result['session']['total_peers']   = status.num_incomplete
+
+        if self.torrent_video_file:
+            result['video_file']['path']              = self.torrent_video_file.path
+            result['video_file']['size']              = self.torrent_video_file.size
+            result['video_file']['start_piece_index'] = self.torrent_video_file.start_piece_index
+            result['video_file']['end_piece_index']   = self.torrent_video_file.end_piece_index
+
+            completed_pieces = 0
+            piece_map        = ''
+            for piece_index in range(self.torrent_video_file.start_piece_index, self.torrent_video_file.end_piece_index + 1):
+                if self.torrent_handle.have_piece(piece_index):
+                    completed_pieces = completed_pieces + 1
+                    piece_map        = piece_map + '*'
+                else:
+                    piece_map = piece_map + '.'
+
+            result['video_file']['complete_pieces'] = completed_pieces
+            result['video_file']['total_pieces']    = max(1, self.torrent_video_file.end_piece_index - self.torrent_video_file.start_piece_index)
+            result['video_file']['piece_map']       = piece_map
+
+        return result
 
     ############################################################################
     def get_video_file(self):
-        video_file = self._get_video_torrent_file()
+        if self.torrent_video_file:
+            return filewrapper.FileWrapper(self.torrent_handle, self.torrent_video_file)
 
-        if video_file:
-            return filewrapper.FileWrapper(self.torrent_handle, video_file)
+    ############################################################################
+    def _check_for_downloading(self):
+        if not self.torrent_downloading:
+            status = self.torrent_handle.status()
+            if int(status.state) >= int(libtorrent.torrent_status.states.downloading):
+                self.bus.log('[Downloader] Download started')
+                self.torrent_downloading = True
+
+                self.torrent_video_file = self._get_video_torrent_file()
+                if self.torrent_video_file:
+                    self.torrent_video_file.start_piece_index = utils.piece_from_offset(self.torrent_handle, self.torrent_video_file.offset)
+                    self.torrent_video_file.end_piece_index   = utils.piece_from_offset(self.torrent_handle, self.torrent_video_file.offset + self.torrent_video_file.size)
+
+                    self.bus.log('[Downloader] Setting pieces priority for {0}: {1} {2}'.format(self.torrent_video_file.path, self.torrent_video_file.start_piece_index, self.torrent_video_file.end_piece_index))
+                    self.torrent_handle.piece_priority(self.torrent_video_file.start_piece_index, 7)
+                    self.torrent_handle.piece_priority(self.torrent_video_file.end_piece_index, 7)
+                else:
+                    self.bus.log('[Downloader] No video file found')
 
     ############################################################################
     def _get_video_torrent_file(self):
@@ -130,21 +171,3 @@ class DownloaderPlugin(cherrypy.process.plugins.Monitor):
                     video_file = file
 
         return video_file
-
-    ############################################################################
-    def _set_piece_priorities(self):
-        try:
-            if not self.piece_priorities_set:
-                video_file = self._get_video_torrent_file()
-                if video_file:
-                    start_piece_index, start_piece_offset = utils.piece_from_offset(self.torrent_handle, video_file.offset)
-                    end_piece_index,   end_piece_offset   = utils.piece_from_offset(self.torrent_handle, video_file.offset + video_file.size)
-
-                    self.bus.log('[Downloader] Setting pieces priority for {0}: {1} {2}'.format(video_file.path, start_piece_index, end_piece_index))
-
-                    self.torrent_handle.piece_priority(start_piece_index, 7)
-                    self.torrent_handle.piece_priority(end_piece_index, 7)
-               
-                    self.piece_priorities_set = True
-        except:
-            pass

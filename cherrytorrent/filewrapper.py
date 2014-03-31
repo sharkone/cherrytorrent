@@ -28,7 +28,7 @@ class FileWrapper(io.RawIOBase):
         elif whence == io.SEEK_END:
             new_position = self.size + offset
 
-        piece_index, piece_offset = utils.piece_from_offset(self.torrent_handle, self.torrent_file.offset + new_position)
+        piece_index = utils.piece_from_offset(self.torrent_handle, self.torrent_file.offset + new_position)
         self._wait_for_piece(piece_index)
         return self.file.seek(offset, whence)
         
@@ -40,7 +40,7 @@ class FileWrapper(io.RawIOBase):
             size = self.size - current_offset
         
         if size <= self.torrent_handle.get_torrent_info().piece_length():
-            piece_index, piece_offset = utils.piece_from_offset(self.torrent_handle, self.torrent_file.offset + current_offset + size)
+            piece_index = utils.piece_from_offset(self.torrent_handle, self.torrent_file.offset + current_offset + size)
             self._wait_for_piece(piece_index)
             return self.file.read(size) 
 
