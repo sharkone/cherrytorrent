@@ -137,7 +137,7 @@ class DownloaderPlugin(cherrypy.process.plugins.Monitor):
     ############################################################################
     def get_video_file(self):
         if self.torrent_video_file:
-            return filewrapper.FileWrapper(self.torrent_handle, self.torrent_video_file)
+            return filewrapper.FileWrapper(self.bus, self.torrent_handle, self.torrent_video_file)
 
     ############################################################################
     def _check_for_downloading(self):

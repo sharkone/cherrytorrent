@@ -7,7 +7,8 @@ import utils
 ################################################################################
 class FileWrapper(io.RawIOBase):
     ############################################################################
-    def __init__(self, torrent_handle, torrent_file):
+    def __init__(self, bus, torrent_handle, torrent_file):
+        self.bus            = bus
         self.torrent_handle = torrent_handle
         self.torrent_file   = torrent_file
 
@@ -29,6 +30,7 @@ class FileWrapper(io.RawIOBase):
             new_position = self.size + offset
 
         piece_index = utils.piece_from_offset(self.torrent_handle, self.torrent_file.offset + new_position)
+        self.bus.log('[FileWrapper] Seeking to piece {0}'.format(piece_index))
         self._wait_for_piece(piece_index)
         return self.file.seek(offset, whence)
         
@@ -54,6 +56,8 @@ class FileWrapper(io.RawIOBase):
 
     ############################################################################
     def _wait_for_piece(self, piece_index):
-        #print 'Waiting for piece: {0}'.format(piece_index)
-        while not self.torrent_handle.have_piece(piece_index):
-            time.sleep(0.1)
+        if not self.torrent_handle.have_piece(piece_index):
+            self.bus.log('[FileWrapper] Waiting for piece {0}'.format(piece_index))
+            while not self.torrent_handle.have_piece(piece_index):
+                time.sleep(0.1)
+            self.bus.log('[FileWrapper] Piece {0} downloaded'.format(piece_index))
