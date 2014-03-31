@@ -42,8 +42,8 @@ class DownloaderPlugin(cherrypy.process.plugins.Monitor):
 
         self.bus.log('[Downloader] Applying encryption settings')
         encryption_settings = libtorrent.pe_settings()
-        encryption_settings.out_enc_policy = libtorrent.enc_policy(self.torrent_config['encryption'])
-        encryption_settings.in_enc_policy = libtorrent.enc_policy(self.torrent_config['encryption'])
+        encryption_settings.out_enc_policy = libtorrent.enc_policy(libtorrent.enc_policy.forced)
+        encryption_settings.in_enc_policy = libtorrent.enc_policy(libtorrent.enc_policy.forced)
         encryption_settings.allowed_enc_level = libtorrent.enc_level.both
         encryption_settings.prefer_rc4 = True
         self.session.set_pe_settings(encryption_settings)
