@@ -10,8 +10,7 @@ def main():
     arg_parser.add_argument('torrent_uri', help='Magnet link or torrent file URL')
     arg_parser.add_argument('-hp',  '--http-port', type=int, default=8080, help='Port used for HTTP server')
     arg_parser.add_argument('-ht',  '--http-inactivity-timeout', type=int, default=30, help='Inactivity timeout')
-    arg_parser.add_argument('-tl',  '--torrent-low-port', type=int, default=6900, help='Lower bound of BitTorrent session port range')
-    arg_parser.add_argument('-th',  '--torrent-high-port', type=int, default=6999, help='Higher bound of BitTorrent session port range')
+    arg_parser.add_argument('-tp',  '--torrent-port', type=int, default=6900, help='Port used for BitTorrent incoming connections')
     arg_parser.add_argument('-tdl', '--torrent-download-rate', type=int, default=0, help='Maximum download rate in kB/s (0: Unlimited)')
     arg_parser.add_argument('-tul', '--torrent-upload-rate', type=int, default=0, help='Maximum upload rate in kB/s (0: Unlimited)')
     arg_parser.add_argument('-te',  '--torrent-encryption', default=1, help='Encryption: 0: Forced 1: Enabled (default) 2:Disabled)')
@@ -26,8 +25,7 @@ def main():
 
     torrent_config = {
                         'uri':              args.torrent_uri,
-                        'low_port':         args.torrent_low_port,
-                        'high_port':        args.torrent_high_port,
+                        'port':             args.torrent_port,
                         'download_rate':    args.torrent_download_rate,
                         'upload_rate':      args.torrent_upload_rate,
                         'encryption':       args.torrent_encryption,

@@ -21,8 +21,8 @@ class DownloaderPlugin(cherrypy.process.plugins.Monitor):
         self.session.start_lsd()
         self.session.start_upnp()
         self.session.start_natpmp()
-        self.bus.log('[Downloader] Listening on {0}:{1}'.format(self.torrent_config['low_port'], self.torrent_config['high_port']))
-        self.session.listen_on(self.torrent_config['low_port'], self.torrent_config['high_port'])
+        self.bus.log('[Downloader] Listening on {0}'.format(self.torrent_config['port']))
+        self.session.listen_on(self.torrent_config['port'], self.torrent_config['port'])
 
         self.bus.log('[Downloader] Applying session settings')
         session_settings = self.session.settings()
