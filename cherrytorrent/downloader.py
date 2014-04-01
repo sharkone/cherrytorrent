@@ -103,7 +103,7 @@ class DownloaderPlugin(cherrypy.process.plugins.Monitor):
         result = { 'session': {}, 'video_file':{} }
 
         status = self.torrent_handle.status()
-        result['session']['state']         = status.state
+        result['session']['state']         = str(status.state)
         result['session']['state_index']   = int(status.state)
         result['session']['progress']      = math.trunc(status.progress * 100.0) / 100.0
         result['session']['download_rate'] = status.download_rate / 1024
@@ -118,19 +118,23 @@ class DownloaderPlugin(cherrypy.process.plugins.Monitor):
             result['video_file']['size']              = self.torrent_video_file.size
             result['video_file']['start_piece_index'] = self.torrent_video_file.start_piece_index
             result['video_file']['end_piece_index']   = self.torrent_video_file.end_piece_index
+            result['video_file']['total_pieces']      = max(1, self.torrent_video_file.end_piece_index - self.torrent_video_file.start_piece_index)
 
             completed_pieces = 0
-            piece_map        = ''
             for piece_index in range(self.torrent_video_file.start_piece_index, self.torrent_video_file.end_piece_index + 1):
                 if self.torrent_handle.have_piece(piece_index):
                     completed_pieces = completed_pieces + 1
-                    piece_map        = piece_map + '*'
                 else:
-                    piece_map = piece_map + '.'
-
+                    break
             result['video_file']['complete_pieces'] = completed_pieces
-            result['video_file']['total_pieces']    = max(1, self.torrent_video_file.end_piece_index - self.torrent_video_file.start_piece_index)
-            result['video_file']['piece_map']       = piece_map
+
+            piece_map = ''
+            for piece_index in range(self.torrent_video_file.start_piece_index, self.torrent_video_file.end_piece_index + 1):
+                if self.torrent_handle.have_piece(piece_index):
+                    piece_map = piece_map + '*'
+                else:
+                    piece_map = piece_map + str(self.torrent_handle.piece_priority(piece_index))
+            result['video_file']['piece_map'] = piece_map
 
         return result
 
