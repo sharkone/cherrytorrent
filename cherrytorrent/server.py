@@ -18,12 +18,10 @@ class InactivityMonitor(cherrypy.process.plugins.Monitor):
 
     ############################################################################
     def start(self):
-        self.bus.log('[InactivityMonitor] Starting')
         cherrypy.process.plugins.Monitor.start(self)
 
     ############################################################################
     def stop(self):
-        self.bus.log('[InactivityMonitor] Stopping')
         cherrypy.process.plugins.Monitor.stop(self)
 
     ############################################################################
@@ -40,7 +38,7 @@ class InactivityMonitor(cherrypy.process.plugins.Monitor):
 
         if self.active_connection_count == 0 and (datetime.datetime.now() - self.last_connection_time) >= datetime.timedelta(seconds=self.timeout):
             if cherrypy.engine.state == cherrypy.engine.states.STARTED:
-                self.bus.log('[InactivityMonitor] {0} second timeout exceeded'.format(self.timeout))
+                self.bus.log('{0} seconds inactivity timeout exceeded'.format(self.timeout))
                 cherrypy.engine.exit()
 
 ################################################################################
@@ -53,8 +51,8 @@ class Server:
         cherrypy.engine.inactivity_monitor = InactivityMonitor(cherrypy.engine, self.http_config['inactivity_timeout'])
         cherrypy.engine.inactivity_monitor.subscribe()
 
-        cherrypy.engine.downloader_plugin = downloader.DownloaderPlugin(cherrypy.engine, self.torrent_config)
-        cherrypy.engine.downloader_plugin.subscribe()
+        cherrypy.engine.downloader_monitor = downloader.DownloaderMonitor(cherrypy.engine, self.torrent_config)
+        cherrypy.engine.downloader_monitor.subscribe()
         
     ############################################################################
     def run(self):
@@ -73,12 +71,12 @@ class ServerRoot:
     ############################################################################
     @cherrypy.expose
     def status(self):
-        return json.dumps(cherrypy.engine.downloader_plugin.get_status())
+        return json.dumps(cherrypy.engine.downloader_monitor.get_status())
 
     ############################################################################
     @cherrypy.expose
     def download(self):
-        video_file = cherrypy.engine.downloader_plugin.get_video_file()
+        video_file = cherrypy.engine.downloader_monitor.get_video_file()
         if not video_file:
             return 'Not ready!'
 
@@ -87,7 +85,7 @@ class ServerRoot:
     ############################################################################
     @cherrypy.expose
     def video(self):
-        video_file = cherrypy.engine.downloader_plugin.get_video_file()
+        video_file = cherrypy.engine.downloader_monitor.get_video_file()
         if not video_file:
             return 'Not ready!'
 

@@ -3,31 +3,35 @@ import cherrypy
 import filewrapper
 import libtorrent
 import math
+import time
 import utils
 
 ################################################################################
-class DownloaderPlugin(cherrypy.process.plugins.Monitor):
+class DownloaderMonitor(cherrypy.process.plugins.Monitor):
     ############################################################################
     def __init__(self, bus, torrent_config):
-        cherrypy.process.plugins.Monitor.__init__(self, bus, self._check_for_downloading, frequency=1)
+        cherrypy.process.plugins.Monitor.__init__(self, bus, self._background_task, frequency=1)
 
-        self.torrent_config      = torrent_config
-        self.torrent_handle      = None
-        self.torrent_downloading = False
-        self.torrent_video_file  = None
+        self.torrent_config = torrent_config
+
+        self.session            = None
+        self.torrent_handle     = None
+        self.torrent_video_file = None
 
     ############################################################################
     def start(self):
-        self.bus.log('[Downloader] Starting')
+        cherrypy.process.plugins.Monitor.start(self)
+
+        self.bus.log('[Downloader] Starting session')
         self.session = libtorrent.session()
+        self.session.set_alert_mask(libtorrent.alert.category_t.error_notification | libtorrent.alert.category_t.status_notification)
         self.session.start_dht()
         self.session.start_lsd()
         self.session.start_upnp()
         self.session.start_natpmp()
-        self.bus.log('[Downloader] Listening on {0}'.format(self.torrent_config['port']))
         self.session.listen_on(self.torrent_config['port'], self.torrent_config['port'])
 
-        self.bus.log('[Downloader] Applying session settings')
+        # Session settings
         session_settings = self.session.settings()
         session_settings.announce_to_all_tiers = True
         session_settings.announce_to_all_trackers = True
@@ -43,75 +47,55 @@ class DownloaderPlugin(cherrypy.process.plugins.Monitor):
             session_settings.upload_rate_limit = self.torrent_config['upload_rate'] * 1024
         self.session.set_settings(session_settings)
 
-        self.bus.log('[Downloader] Applying encryption settings')
+        # Encryption settings
         encryption_settings = libtorrent.pe_settings()
         encryption_settings.out_enc_policy = libtorrent.enc_policy(libtorrent.enc_policy.forced)
         encryption_settings.in_enc_policy = libtorrent.enc_policy(libtorrent.enc_policy.forced)
         encryption_settings.allowed_enc_level = libtorrent.enc_level.both
         encryption_settings.prefer_rc4 = True
         self.session.set_pe_settings(encryption_settings)
-
-        self.bus.log('[Downloader] Adding requested torrent')
+        
+        self.bus.log('[Downloader] Adding torrent')
         add_torrent_params                 = {}
         add_torrent_params['url']          = self.torrent_config['uri']
         add_torrent_params['save_path']    = self.torrent_config['download_dir']
         add_torrent_params['storage_mode'] = libtorrent.storage_mode_t.storage_mode_sparse
-        self.torrent_handle = self.session.add_torrent(add_torrent_params)
-        self.torrent_handle.set_sequential_download(True)
+        self.session.async_add_torrent(add_torrent_params)
 
-        torrent_handle_status = self.torrent_handle.status()
-        if torrent_handle_status.error:
-            raise RuntimeError(torrent_handle_status.error)
-
-        self.piece_priorities_set = False
-        cherrypy.process.plugins.Monitor.start(self)
 
     ############################################################################
     def stop(self):
-        self.bus.log('[Downloader] Stopping')
-        
-        cherrypy.process.plugins.Monitor.stop(self)
+        self.bus.log('[Downloader] Stopping session')
 
         if self.torrent_handle:
             if not self.torrent_config['keep_files']:
                 self.bus.log('[Downloader] Removing downloaded files')
-                self.session.set_alert_mask(libtorrent.alert.category_t.storage_notification)
                 self.session.remove_torrent(self.torrent_handle, libtorrent.options_t.delete_files)
-                
-                torrent_removed = False
-                while not torrent_removed:
-                    alert = self.session.pop_alert()
-                    while alert:
-                        if alert.what() in ('cache_flushed_alert', 'torrent_deleted_alert'):
-                            torrent_removed = True
-                            break
-                        alert = self.session.pop_alert()
-
-                    if not torrent_removed:
-                        alert = self.session.wait_for_alert(100)
-                        if alert:
-                            if alert.what() in ('cache_flushed_alert', 'torrent_deleted_alert'):
-                                torrent_removed = True
+                while self.torrent_handle:
+                    time.sleep(0.1)
 
         self.session.stop_natpmp()
         self.session.stop_upnp()
         self.session.stop_lsd()
         self.session.stop_dht()
 
+        cherrypy.process.plugins.Monitor.stop(self)
+
     ############################################################################
     def get_status(self):
         result = { 'session': {}, 'video_file':{} }
 
-        status = self.torrent_handle.status()
-        result['session']['state']         = str(status.state)
-        result['session']['state_index']   = int(status.state)
-        result['session']['progress']      = math.trunc(status.progress * 100.0) / 100.0
-        result['session']['download_rate'] = status.download_rate / 1024
-        result['session']['upload_rate']   = status.upload_rate / 1024
-        result['session']['num_seeds']     = status.num_seeds
-        result['session']['total_seeds']   = status.num_complete
-        result['session']['num_peers']     = status.num_peers
-        result['session']['total_peers']   = status.num_incomplete
+        if self.torrent_handle:
+            status = self.torrent_handle.status()
+            result['session']['state']         = str(status.state)
+            result['session']['state_index']   = int(status.state)
+            result['session']['progress']      = math.trunc(status.progress * 100.0) / 100.0
+            result['session']['download_rate'] = status.download_rate / 1024
+            result['session']['upload_rate']   = status.upload_rate / 1024
+            result['session']['num_seeds']     = status.num_seeds
+            result['session']['total_seeds']   = status.num_complete
+            result['session']['num_peers']     = status.num_peers
+            result['session']['total_peers']   = status.num_incomplete
 
         if self.torrent_video_file:
             result['video_file']['path']              = self.torrent_video_file.path
@@ -144,23 +128,61 @@ class DownloaderPlugin(cherrypy.process.plugins.Monitor):
             return filewrapper.FileWrapper(self.bus, self.torrent_handle, self.torrent_video_file)
 
     ############################################################################
-    def _check_for_downloading(self):
-        if not self.torrent_downloading:
-            status = self.torrent_handle.status()
-            if int(status.state) >= int(libtorrent.torrent_status.states.downloading):
-                self.bus.log('[Downloader] Download started')
-                self.torrent_downloading = True
+    def _background_task(self):
+        while not self.session:
+            time.sleep(0.1)
 
-                self.torrent_video_file = self._get_video_torrent_file()
-                if self.torrent_video_file:
-                    self.torrent_video_file.start_piece_index = utils.piece_from_offset(self.torrent_handle, self.torrent_video_file.offset)
-                    self.torrent_video_file.end_piece_index   = utils.piece_from_offset(self.torrent_handle, self.torrent_video_file.offset + self.torrent_video_file.size)
+        self.session.wait_for_alert(1000)
+        alert = self.session.pop_alert()
+        if alert:
+            # Critical alerts
+            if isinstance(alert, libtorrent.torrent_error_alert):
+                self.bus.log('[Downloader] {0}: {1}'.format(alert.what(), alert.message()))
+                self.torrent_handle = None
+                cherrypy.engine.exit()
+            
+            # Ignored alerts
+            elif isinstance(alert, libtorrent.add_torrent_alert):
+                pass
 
-                    self.bus.log('[Downloader] Setting pieces priority for {0}: {1} {2}'.format(self.torrent_video_file.path, self.torrent_video_file.start_piece_index, self.torrent_video_file.end_piece_index))
-                    self.torrent_handle.piece_priority(self.torrent_video_file.start_piece_index, 7)
-                    self.torrent_handle.piece_priority(self.torrent_video_file.end_piece_index, 7)
-                else:
-                    self.bus.log('[Downloader] No video file found')
+            # Session alerts
+            elif isinstance(alert, libtorrent.listen_succeeded_alert):
+                # TODO: Need to fix python bindings to properly expose endpoint as tuple
+                self.bus.log('[Downloader] Session {0}'.format(alert.message()))
+
+            # Tracker alerts
+            elif isinstance(alert, libtorrent.tracker_error_alert):
+                self.bus.log('[Downloader] Tracker error: {0} {1}'.format(alert.url, alert.status_code))
+
+            # Torrent alerts
+            elif isinstance(alert, libtorrent.torrent_added_alert):
+                self.bus.log('[Downloader] Torrent added')
+                self.torrent_handle = alert.handle
+                self.torrent_handle.set_sequential_download(True)
+            elif isinstance(alert, libtorrent.torrent_removed_alert):
+                self.bus.log('[Downloader] Torrent removed')
+                self.torrent_handle = None
+            elif isinstance(alert, libtorrent.state_changed_alert):
+                self.bus.log('[Downloader] Torrent state changed: {0}'.format(alert.state))
+                if alert.state == libtorrent.torrent_status.states.downloading:
+                    self.torrent_video_file = self._get_video_torrent_file()
+                    if self.torrent_video_file:
+                        self.torrent_video_file.start_piece_index = utils.piece_from_offset(self.torrent_handle, self.torrent_video_file.offset)
+                        self.torrent_video_file.end_piece_index   = utils.piece_from_offset(self.torrent_handle, self.torrent_video_file.offset + self.torrent_video_file.size)
+
+                        self.bus.log('[Downloader] Setting pieces priority for {0}: {1} {2}'.format(self.torrent_video_file.path, self.torrent_video_file.start_piece_index, self.torrent_video_file.end_piece_index))
+                        self.torrent_handle.piece_priority(self.torrent_video_file.start_piece_index, 7)
+                        self.torrent_handle.piece_priority(self.torrent_video_file.end_piece_index, 7)
+                    else:
+                        self.bus.log('[Downloader] No video file found')
+                        cherrypy.engine.exit()
+
+            elif isinstance(alert, libtorrent.torrent_resumed_alert):
+                self.bus.log('[Downloader] Torrent resumed')
+
+            # Fallback
+            else:                    
+                self.bus.log('[Downloader] Unhandled alert received: {0}: {1}'.format(alert.what(), alert.message()))
 
     ############################################################################
     def _get_video_torrent_file(self):
