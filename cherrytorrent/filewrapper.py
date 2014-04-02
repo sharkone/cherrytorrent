@@ -36,19 +36,18 @@ class FileWrapper(io.RawIOBase):
         
     ############################################################################
     def read(self, size=-1):
-        current_offset = self.file.tell()
-
         if size == -1:
-            size = self.size - current_offset
+            size = self.size - self.file.tell()
         
-        if size <= self.torrent_handle.get_torrent_info().piece_length():
-            piece_index = utils.piece_from_offset(self.torrent_handle, self.torrent_file.offset + current_offset + size)
+        result = ''
+        while size > 0:
+            part_read_size = min(size, self.torrent_handle.get_torrent_info().piece_length())
+            piece_index    = utils.piece_from_offset(self.torrent_handle, self.torrent_file.offset + self.file.tell() + part_read_size)
             self._wait_for_piece(piece_index)
-            return self.file.read(size) 
+            result = result + self.file.read(part_read_size)
+            size   = size - part_read_size
 
-        #print 'Reading more than one piece...'
-        # TODO: Should wait/read piece one by one and concat result
-        return self.file.read(size)
+        return result            
 
     ############################################################################
     def close(self):
