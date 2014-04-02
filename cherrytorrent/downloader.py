@@ -164,18 +164,20 @@ class DownloaderMonitor(cherrypy.process.plugins.Monitor):
                 self.torrent_handle = None
             elif isinstance(alert, libtorrent.state_changed_alert):
                 self.bus.log('[Downloader] Torrent state changed: {0}'.format(alert.state))
-                if alert.state == libtorrent.torrent_status.states.downloading:
+                if int(alert.state) >= int(libtorrent.torrent_status.states.downloading) and int(alert.state) <= int(libtorrent.torrent_status.states.seeding):
                     self.torrent_video_file = self._get_video_torrent_file()
                     if self.torrent_video_file:
                         self.torrent_video_file.start_piece_index = utils.piece_from_offset(self.torrent_handle, self.torrent_video_file.offset)
                         self.torrent_video_file.end_piece_index   = utils.piece_from_offset(self.torrent_handle, self.torrent_video_file.offset + self.torrent_video_file.size)
-
-                        self.bus.log('[Downloader] Setting pieces priority for {0}: {1} {2}'.format(self.torrent_video_file.path, self.torrent_video_file.start_piece_index, self.torrent_video_file.end_piece_index))
-                        self.torrent_handle.piece_priority(self.torrent_video_file.start_piece_index, 7)
-                        self.torrent_handle.piece_priority(self.torrent_video_file.end_piece_index, 7)
                     else:
                         self.bus.log('[Downloader] No video file found')
                         cherrypy.engine.exit()
+
+                if alert.state == libtorrent.torrent_status.states.downloading:
+                    if self.torrent_video_file:
+                        self.bus.log('[Downloader] Setting pieces priority for {0}: {1} {2}'.format(self.torrent_video_file.path, self.torrent_video_file.start_piece_index, self.torrent_video_file.end_piece_index))
+                        self.torrent_handle.piece_priority(self.torrent_video_file.start_piece_index, 7)
+                        self.torrent_handle.piece_priority(self.torrent_video_file.end_piece_index, 7)
 
             elif isinstance(alert, libtorrent.torrent_resumed_alert):
                 self.bus.log('[Downloader] Torrent resumed')
@@ -186,10 +188,6 @@ class DownloaderMonitor(cherrypy.process.plugins.Monitor):
 
     ############################################################################
     def _get_video_torrent_file(self):
-        status = self.torrent_handle.status()
-        if int(status.state) < int(libtorrent.torrent_status.states.downloading):
-            return None
-
         video_file = None
         for file in self.torrent_handle.get_torrent_info().files():
             if file.path.endswith('.mkv') or file.path.endswith('.mp4') or file.path.endswith('.avi'):
