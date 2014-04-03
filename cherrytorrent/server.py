@@ -14,7 +14,7 @@ class InactivityMonitor(cherrypy.process.plugins.Monitor):
         cherrypy.process.plugins.Monitor.__init__(self, bus, self._check_for_timeout, frequency=1)
         self.timeout                 = timeout
         self.active_connection_count = 0
-        self.last_connection_time    = datetime.datetime.now()
+        self.update_last_connection_time()
 
     ############################################################################
     def start(self):
@@ -23,6 +23,10 @@ class InactivityMonitor(cherrypy.process.plugins.Monitor):
     ############################################################################
     def stop(self):
         cherrypy.process.plugins.Monitor.stop(self)
+
+    ############################################################################
+    def update_last_connection_time(self):
+        self.last_connection_time = datetime.datetime.now()
 
     ############################################################################
     def _check_for_timeout(self):
@@ -34,7 +38,7 @@ class InactivityMonitor(cherrypy.process.plugins.Monitor):
                 self.active_connection_count = self.active_connection_count + 1
 
         if prev_active_connection_count > 0 and self.active_connection_count == 0:
-            self.last_connection_time = datetime.datetime.now()
+            self.update_last_connection_time()
 
         if self.active_connection_count == 0 and (datetime.datetime.now() - self.last_connection_time) >= datetime.timedelta(seconds=self.timeout):
             if cherrypy.engine.state == cherrypy.engine.states.STARTED:
@@ -66,16 +70,20 @@ class ServerRoot:
     ############################################################################
     @cherrypy.expose
     def index(self):
+        cherrypy.engine.inactivity_monitor.update_last_connection_time()
         return 'cherrytorrent running'
 
     ############################################################################
     @cherrypy.expose
     def status(self):
+        cherrypy.engine.inactivity_monitor.update_last_connection_time()
         return json.dumps(cherrypy.engine.downloader_monitor.get_status())
 
     ############################################################################
     @cherrypy.expose
     def download(self):
+        cherrypy.engine.inactivity_monitor.update_last_connection_time()
+        
         video_file = cherrypy.engine.downloader_monitor.get_video_file()
         if not video_file:
             return 'Not ready!'
@@ -85,6 +93,8 @@ class ServerRoot:
     ############################################################################
     @cherrypy.expose
     def video(self):
+        cherrypy.engine.inactivity_monitor.update_last_connection_time()
+
         video_file = cherrypy.engine.downloader_monitor.get_video_file()
         if not video_file:
             return 'Not ready!'
