@@ -191,9 +191,9 @@ class DownloaderMonitor(cherrypy.process.plugins.Monitor):
                         self.torrent_video_file.start_piece_index = utils.piece_from_offset(self.torrent_handle, self.torrent_video_file.offset)
                         self.torrent_video_file.end_piece_index   = utils.piece_from_offset(self.torrent_handle, self.torrent_video_file.offset + self.torrent_video_file.size)
 
-                        self.bus.log('[Downloader] Setting pieces priority for {0}: {1} {2}'.format(self.torrent_video_file.path, self.torrent_video_file.start_piece_index, self.torrent_video_file.end_piece_index))
-                        self.torrent_handle.piece_priority(self.torrent_video_file.start_piece_index, 7)
-                        self.torrent_handle.piece_priority(self.torrent_video_file.end_piece_index, 7)
+                        self.bus.log('[Downloader] Setting piece priorities for {0}'.format(self.torrent_video_file.path))
+                        utils.set_piece_priorities(self.torrent_handle, self.torrent_video_file, self.torrent_video_file.start_piece_index, False)
+                        utils.set_piece_priorities(self.torrent_handle, self.torrent_video_file, self.torrent_video_file.end_piece_index, True)
                     else:
                         self.bus.log('[Downloader] No video file found')
                         cherrypy.engine.exit()

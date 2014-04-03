@@ -57,6 +57,7 @@ class FileWrapper(io.RawIOBase):
     def _wait_for_piece(self, piece_index):
         if not self.torrent_handle.have_piece(piece_index):
             self.bus.log('[FileWrapper] Waiting for piece {0}'.format(piece_index))
+            utils.set_piece_priorities(self.torrent_handle, self.torrent_file, piece_index, False)
             while not self.torrent_handle.have_piece(piece_index):
                 time.sleep(0.1)
             self.bus.log('[FileWrapper] Piece {0} downloaded'.format(piece_index))
