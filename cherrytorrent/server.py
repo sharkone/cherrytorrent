@@ -57,21 +57,43 @@ class Server:
 
         cherrypy.engine.downloader_monitor = downloader.DownloaderMonitor(cherrypy.engine, self.torrent_config)
         cherrypy.engine.downloader_monitor.subscribe()
+
+        self.log_path = os.path.abspath(os.path.join(self.http_config['log_dir'], 'cherrytorrent.log'))
         
     ############################################################################
     def run(self):
+        if os.path.isfile(self.log_path):
+            os.remove(self.log_path)
+
+        cherrypy.config.update({'log.error_file':self.log_path})
         cherrypy.config.update({'server.socket_host':'0.0.0.0'})
         cherrypy.config.update({'server.socket_port':self.http_config['port']})
 
-        cherrypy.quickstart(ServerRoot())
+        cherrypy.quickstart(ServerRoot(self.log_path))
 
 ################################################################################
 class ServerRoot:
+    ############################################################################
+    def __init__(self, log_path):
+        self.log_path = log_path
+
     ############################################################################
     @cherrypy.expose
     def index(self):
         cherrypy.engine.inactivity_monitor.update_last_connection_time()
         return 'cherrytorrent running'
+
+    ############################################################################
+    @cherrypy.expose
+    def log(self):
+        cherrypy.engine.inactivity_monitor.update_last_connection_time()
+        
+        result = ''
+        with open(self.log_path, 'r') as f:
+            for line in iter(f.readline, ''):
+                result = result + line + '<br/>'
+        
+        return result
 
     ############################################################################
     @cherrypy.expose

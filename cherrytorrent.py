@@ -8,6 +8,7 @@ from cherrytorrent import server
 def main():
     arg_parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     arg_parser.add_argument('torrent_uri', help='Magnet link or torrent file URL')
+    arg_parser.add_argument('-hl',  '--http-log-dir', default='.', help='Log file destination directory')
     arg_parser.add_argument('-hp',  '--http-port', type=int, default=8080, help='Port used for HTTP server')
     arg_parser.add_argument('-ht',  '--http-inactivity-timeout', type=int, default=30, help='Inactivity timeout')
     arg_parser.add_argument('-tp',  '--torrent-port', type=int, default=6900, help='Port used for BitTorrent incoming connections')
@@ -18,6 +19,7 @@ def main():
     args = arg_parser.parse_args()
 
     http_config    = {
+                        'log_dir':              args.http_log_dir,
                         'port':                 args.http_port,
                         'inactivity_timeout':   args.http_inactivity_timeout
                      }
