@@ -109,8 +109,8 @@ class DownloaderMonitor(cherrypy.process.plugins.Monitor):
             result['video_file']['end_piece_index']       = self.torrent_video_file.end_piece_index
             result['video_file']['total_pieces']          = self._get_video_file_total_pieces(self.torrent_video_file)
             result['video_file']['preload_buffer_pieces'] = utils.get_preload_buffer_piece_count(self.torrent_video_file)
-            result['video_file']['is_ready_fast']         = self.is_video_file_ready(True)
-            result['video_file']['is_ready_slow']         = self.is_video_file_ready(False)
+            result['video_file']['is_ready_fast']         = self.is_video_file_ready(True, False)
+            result['video_file']['is_ready_slow']         = self.is_video_file_ready(False, False)
             result['video_file']['complete_pieces']       = self._get_video_file_complete_pieces(self.torrent_handle, self.torrent_video_file)
 
             piece_map = ''
