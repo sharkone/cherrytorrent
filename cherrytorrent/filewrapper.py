@@ -67,7 +67,6 @@ class FileWrapper(io.RawIOBase):
                self.virtual_read = True
                return
 
-            utils.set_piece_priorities(self.torrent_handle, self.torrent_file, piece_index)
             while not self.torrent_handle.have_piece(piece_index):
                 time.sleep(0.1)
             self.bus.log('[FileWrapper] Piece {0} downloaded'.format(piece_index))
