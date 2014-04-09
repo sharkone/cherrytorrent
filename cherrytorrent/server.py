@@ -6,6 +6,7 @@ import json
 import mimetypes
 import os
 import static
+import time
 
 ################################################################################
 class InactivityMonitor(cherrypy.process.plugins.Monitor):
@@ -106,32 +107,34 @@ class ServerRoot:
     def download(self):
         cherrypy.engine.inactivity_monitor.update_last_connection_time()
         
-        video_file = cherrypy.engine.downloader_monitor.get_video_file()
-        if not video_file:
-            return 'Not ready!'
-
-        return static.serve_fileobj(video_file, content_length=video_file.size, content_type='application/x-download', disposition='attachment', name=os.path.basename(video_file.path))
+        if cherrypy.engine.downloader_monitor.is_video_file_ready():
+            video_file = cherrypy.engine.downloader_monitor.get_video_file()
+            return static.serve_fileobj(video_file, content_length=video_file.size, content_type='application/x-download', disposition='attachment', name=os.path.basename(video_file.path))
+        else:
+            time.sleep(2)
+            raise cherrypy.HTTPRedirect("/download", 307)
 
     ############################################################################
     @cherrypy.expose
     def video(self):
         cherrypy.engine.inactivity_monitor.update_last_connection_time()
 
-        video_file = cherrypy.engine.downloader_monitor.get_video_file()
-        if not video_file:
-            return 'Not ready!'
+        if cherrypy.engine.downloader_monitor.is_video_file_ready():
+            video_file   = cherrypy.engine.downloader_monitor.get_video_file()
+            content_type = mimetypes.types_map.get(os.path.splitext(video_file.path), None)
 
-        content_type = mimetypes.types_map.get(os.path.splitext(video_file.path), None)
-        
-        if not content_type:
-            if video_file.path.endswith('.avi'):
-                content_type = 'video/avi'
-            elif video_file.path.endswith('.mkv'):
-                content_type = 'video/x-matroska'
-            elif video_file.path.endswith('.mp4'):
-                content_type = 'video/mp4'
+            if not content_type:
+                if video_file.path.endswith('.avi'):
+                    content_type = 'video/avi'
+                elif video_file.path.endswith('.mkv'):
+                    content_type = 'video/x-matroska'
+                elif video_file.path.endswith('.mp4'):
+                    content_type = 'video/mp4'
 
-        return static.serve_fileobj(video_file, content_length=video_file.size, content_type=content_type, name=os.path.basename(video_file.path))
+            return static.serve_fileobj(video_file, content_length=video_file.size, content_type=content_type, name=os.path.basename(video_file.path))            
+        else:
+            time.sleep(2)
+            raise cherrypy.HTTPRedirect("/video", 307)
 
     ############################################################################
     @cherrypy.expose

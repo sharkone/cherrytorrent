@@ -19,6 +19,7 @@ class FileWrapper(io.RawIOBase):
             time.sleep(0.1)
 
         self.file = open(self.path, 'rb')
+        self.virtual_read = False
 
     ############################################################################
     def seek(self, offset, whence=io.SEEK_SET):
@@ -36,6 +37,10 @@ class FileWrapper(io.RawIOBase):
         
     ############################################################################
     def read(self, size=-1):
+        if self.virtual_read:
+           self.virtual_read = False
+           return ""
+
         if size == -1:
             size = self.size - self.file.tell()
         
@@ -57,7 +62,12 @@ class FileWrapper(io.RawIOBase):
     def _wait_for_piece(self, piece_index):
         if not self.torrent_handle.have_piece(piece_index):
             self.bus.log('[FileWrapper] Waiting for piece {0}'.format(piece_index))
-            utils.set_piece_priorities(self.torrent_handle, self.torrent_file, piece_index, False)
+            if (self.torrent_file.end_piece_index - piece_index) <= utils.get_preload_buffer_piece_count(self.torrent_file):
+               self.bus.log('[FileWrapper] Virtual read for piece {0}'.format(piece_index))
+               self.virtual_read = True
+               return
+
+            utils.set_piece_priorities(self.torrent_handle, self.torrent_file, piece_index)
             while not self.torrent_handle.have_piece(piece_index):
                 time.sleep(0.1)
             self.bus.log('[FileWrapper] Piece {0} downloaded'.format(piece_index))
