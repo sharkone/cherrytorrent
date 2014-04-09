@@ -119,7 +119,7 @@ class ServerRoot:
     def video(self):
         cherrypy.engine.inactivity_monitor.update_last_connection_time()
 
-        if cherrypy.engine.downloader_monitor.is_video_file_ready():
+        if cherrypy.engine.downloader_monitor.is_video_file_ready(True):
             video_file   = cherrypy.engine.downloader_monitor.get_video_file()
             content_type = mimetypes.types_map.get(os.path.splitext(video_file.path), None)
 

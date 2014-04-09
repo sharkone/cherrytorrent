@@ -86,10 +86,11 @@ class DownloaderMonitor(cherrypy.process.plugins.Monitor):
 
     ############################################################################
     def get_status(self):
-        result = { 'session': {}, 'video_file':{} }
+        result = {}
 
         if self.torrent_handle:
             status = self.torrent_handle.status()
+            result['session']                  = {}
             result['session']['state']         = str(status.state)
             result['session']['state_index']   = int(status.state)
             result['session']['progress']      = math.trunc(status.progress * 100.0) / 100.0
@@ -101,21 +102,16 @@ class DownloaderMonitor(cherrypy.process.plugins.Monitor):
             result['session']['total_peers']   = status.num_incomplete
 
         if self.torrent_video_file:
+            result['video_file']                          = {}
             result['video_file']['path']                  = self.torrent_video_file.path
             result['video_file']['size']                  = self.torrent_video_file.size
             result['video_file']['start_piece_index']     = self.torrent_video_file.start_piece_index
             result['video_file']['end_piece_index']       = self.torrent_video_file.end_piece_index
-            result['video_file']['total_pieces']          = max(1, self.torrent_video_file.end_piece_index - self.torrent_video_file.start_piece_index)
+            result['video_file']['total_pieces']          = self._get_video_file_total_pieces(self.torrent_video_file)
             result['video_file']['preload_buffer_pieces'] = utils.get_preload_buffer_piece_count(self.torrent_video_file)
-            result['video_file']['is_ready']              = self.is_video_file_ready()
-
-            completed_pieces = 0
-            for piece_index in range(self.torrent_video_file.start_piece_index, self.torrent_video_file.end_piece_index + 1):
-                if self.torrent_handle.have_piece(piece_index):
-                    completed_pieces = completed_pieces + 1
-                else:
-                    break
-            result['video_file']['complete_pieces'] = completed_pieces
+            result['video_file']['is_ready_fast']         = self.is_video_file_ready(True)
+            result['video_file']['is_ready_slow']         = self.is_video_file_ready(False)
+            result['video_file']['complete_pieces']       = self._get_video_file_complete_pieces(self.torrent_handle, self.torrent_video_file)
 
             piece_map = ''
             for piece_index in range(self.torrent_video_file.start_piece_index, self.torrent_video_file.end_piece_index + 1):
@@ -132,15 +128,25 @@ class DownloaderMonitor(cherrypy.process.plugins.Monitor):
         return result
 
     ############################################################################
-    def is_video_file_ready(self):
+    def is_video_file_ready(self, is_fast, log_enabled=True):
         if self.torrent_handle:
             status = self.torrent_handle.status()
             if int(status.state) >= 3 and self.torrent_video_file:
-                return True
+                complete_pieces       = self._get_video_file_complete_pieces(self.torrent_handle, self.torrent_video_file)
+                preload_buffer_pieces = utils.get_preload_buffer_piece_count(self.torrent_video_file)
+                total_pieces          = self._get_video_file_total_pieces(self.torrent_video_file)
+
+                if is_fast or complete_pieces >= preload_buffer_pieces:
+                    return True
+                else:
+                    if log_enabled:
+                        self.bus.log('[Downloader] Not enough pieces yet: {0}/{1} (total: {2}) @ {3} kB/s'.format(complete_pieces, preload_buffer_pieces, total_pieces, status.download_rate / 1024))
             else:
-                self.bus.log('[Downloader] Not ready yet: {0}'.format(str(status.state)))
+                if log_enabled:
+                    self.bus.log('[Downloader] Not ready yet: {0}'.format(str(status.state)))
         else:
-            self.bus.log('[Downloader] Not ready yet')
+            if log_enabled:
+                self.bus.log('[Downloader] Not ready yet')
 
         return False
 
@@ -241,3 +247,22 @@ class DownloaderMonitor(cherrypy.process.plugins.Monitor):
                     video_file = file
 
         return video_file
+
+    ############################################################################
+    def _get_video_file_total_pieces(self, torrent_video_file):
+        return max(1, self.torrent_video_file.end_piece_index - self.torrent_video_file.start_piece_index)
+
+    ############################################################################
+    def _get_video_file_complete_pieces(self, torrent_handle, torrent_video_file):
+        complete_pieces = 0
+
+        if torrent_video_file:
+            return 0
+
+        for piece_index in range(torrent_video_file.start_piece_index, torrent_video_file.end_piece_index + 1):
+            if torrent_handle.have_piece(piece_index):
+                complete_pieces = complete_pieces + 1
+            else:
+                break
+
+        return complete_pieces
