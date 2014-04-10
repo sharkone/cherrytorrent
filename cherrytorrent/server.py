@@ -39,7 +39,7 @@ class InactivityMonitor(cherrypy.process.plugins.Monitor):
         current_process = psutil.Process()
         for connection in current_process.connections('tcp'):
             if connection.laddr[1] == self.http_port and connection.status == 'ESTABLISHED':
-                self.bus.log(str(connection))
+                self.active_connection_count = self.active_connection_count + 1
 
         if prev_active_connection_count > 0 and self.active_connection_count == 0:
             self.update_last_connection_time()
