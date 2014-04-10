@@ -25,7 +25,7 @@ class DownloaderMonitor(cherrypy.process.plugins.Monitor):
 
         self.bus.log('[Downloader] Starting session')
         self.session = libtorrent.session()
-        self.session.set_alert_mask(libtorrent.alert.category_t.error_notification | libtorrent.alert.category_t.status_notification)
+        self.session.set_alert_mask(libtorrent.alert.category_t.error_notification | libtorrent.alert.category_t.status_notification | libtorrent.alert.category_t.storage_notification)
         self.session.start_dht()
         self.session.start_lsd()
         self.session.start_upnp()
@@ -184,6 +184,9 @@ class DownloaderMonitor(cherrypy.process.plugins.Monitor):
                 elif isinstance(alert, libtorrent.hash_failed_alert):
                    pass
                 elif isinstance(alert, libtorrent.tracker_error_alert):
+                    pass
+                elif alert.what() == 'cache_flushed_alert':
+                    # TODO: Need to fix python bindings to properly expose this alert
                     pass
 
                 # Session alerts

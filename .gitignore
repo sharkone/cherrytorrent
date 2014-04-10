@@ -35,5 +35,5 @@ nosetests.xml
 .project
 .pydevproject
 
-cherrytorrent.log
-cherrytorrent.spec
+*.log
+*.spec
