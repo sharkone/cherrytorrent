@@ -1,0 +1,17 @@
+[10/Apr/2014:11:25:42] ENGINE Listening for SIGTERM.
+[10/Apr/2014:11:25:42] ENGINE Bus STARTING
+[10/Apr/2014:11:25:42] ENGINE Set handler for console events.
+[10/Apr/2014:11:25:42] ENGINE Started monitor thread 'InactivityMonitor'.
+[10/Apr/2014:11:25:42] ENGINE Started monitor thread 'DownloaderMonitor'.
+[10/Apr/2014:11:25:42] ENGINE [Downloader] Starting session
+[10/Apr/2014:11:25:42] ENGINE [Downloader] Adding torrent
+[10/Apr/2014:11:25:42] ENGINE Started monitor thread '_TimeoutMonitor'.
+[10/Apr/2014:11:25:42] ENGINE Started monitor thread 'Autoreloader'.
+[10/Apr/2014:11:25:42] ENGINE Serving on 0.0.0.0:8080
+[10/Apr/2014:11:25:42] ENGINE Bus STARTED
+[10/Apr/2014:11:25:43] ENGINE [Downloader] Session successfully listening on [TCP] 0.0.0.0:6900
+[10/Apr/2014:11:25:43] ENGINE [Downloader] Session successfully listening on [TCP] [::]:6900
+[10/Apr/2014:11:25:43] ENGINE [Downloader] Session successfully listening on [UDP] 0.0.0.0:6900
+[10/Apr/2014:11:25:43] ENGINE [Downloader] Torrent state changed: downloading_metadata
+[10/Apr/2014:11:25:43] ENGINE [Downloader] Torrent added
+[10/Apr/2014:11:25:43] ENGINE [Downloader] Torrent resumed

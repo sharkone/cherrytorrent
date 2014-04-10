@@ -59,7 +59,7 @@ class Server:
         cherrypy.engine.downloader_monitor = downloader.DownloaderMonitor(cherrypy.engine, self.torrent_config)
         cherrypy.engine.downloader_monitor.subscribe()
 
-        self.log_path = os.path.abspath(os.path.join(self.http_config['log_dir'], 'cherrytorrent.log'))
+        self.log_path = os.path.abspath(os.path.join(self.http_config['log_dir'], 'cherrytorrent.{0}.log'.format(self.http_config['port'])))
         
     ############################################################################
     def run(self):
