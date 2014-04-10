@@ -5,14 +5,16 @@ import downloader
 import json
 import mimetypes
 import os
+import psutil
 import static
 import time
 
 ################################################################################
 class InactivityMonitor(cherrypy.process.plugins.Monitor):
     ############################################################################
-    def __init__(self, bus, timeout):
+    def __init__(self, bus, http_port, timeout):
         cherrypy.process.plugins.Monitor.__init__(self, bus, self._check_for_timeout, frequency=1)
+        self.http_port               = http_port
         self.timeout                 = timeout
         self.active_connection_count = 0
         self.update_last_connection_time()
@@ -34,9 +36,10 @@ class InactivityMonitor(cherrypy.process.plugins.Monitor):
         prev_active_connection_count = self.active_connection_count
 
         self.active_connection_count = 0
-        for thread in cherrypy.server.httpserver.requests._threads:
-            if thread.conn:
-                self.active_connection_count = self.active_connection_count + 1
+        current_process = psutil.Process()
+        for connection in current_process.connections('tcp'):
+            if connection.laddr[1] == self.http_port and connection.status == 'ESTABLISHED':
+                self.bus.log(str(connection))
 
         if prev_active_connection_count > 0 and self.active_connection_count == 0:
             self.update_last_connection_time()
@@ -53,7 +56,7 @@ class Server:
         self.http_config    = http_config
         self.torrent_config = torrent_config
 
-        cherrypy.engine.inactivity_monitor = InactivityMonitor(cherrypy.engine, self.http_config['inactivity_timeout'])
+        cherrypy.engine.inactivity_monitor = InactivityMonitor(cherrypy.engine, self.http_config['port'], self.http_config['inactivity_timeout'])
         cherrypy.engine.inactivity_monitor.subscribe()
 
         cherrypy.engine.downloader_monitor = downloader.DownloaderMonitor(cherrypy.engine, self.torrent_config)
