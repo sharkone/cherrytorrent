@@ -176,7 +176,7 @@ class DownloaderMonitor(cherrypy.process.plugins.Monitor):
                     pass
                 elif isinstance(alert, libtorrent.external_ip_alert):
                     pass
-                elif isinstance(alert, libtorrent.add_torrent_alert):
+                elif alert.what() == 'add_torrent_alert':
                    pass
                 elif isinstance(alert, libtorrent.torrent_checked_alert):
                    pass
