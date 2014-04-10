@@ -61,8 +61,7 @@ class DownloaderMonitor(cherrypy.process.plugins.Monitor):
         add_torrent_params['url']          = self.torrent_config['uri']
         add_torrent_params['save_path']    = self.torrent_config['download_dir']
         add_torrent_params['storage_mode'] = libtorrent.storage_mode_t.storage_mode_sparse
-        self.session.async_add_torrent(add_torrent_params)
-
+        self.session.add_torrent(add_torrent_params)
 
     ############################################################################
     def stop(self):
@@ -167,7 +166,7 @@ class DownloaderMonitor(cherrypy.process.plugins.Monitor):
             alert = self.session.pop_alert()
             if alert:
                 # Critical alerts
-                if isinstance(alert, libtorrent.torrent_error_alert):
+                if alert.what() == 'torrent_error_alert':
                     self.bus.log('[Downloader] {0}: {1}'.format(alert.what(), alert.message()))
                     self.torrent_handle = None
                     cherrypy.engine.exit()
