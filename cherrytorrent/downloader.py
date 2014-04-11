@@ -85,12 +85,12 @@ class DownloaderMonitor(cherrypy.process.plugins.Monitor):
         add_torrent_params['auto_managed'] = False
 
         torrent_handle = self.session.add_torrent(add_torrent_params)
+        torrent_handle.set_sequential_download(True)
+        torrent_handle.resume()
+        self.bus.connection_monitor.add_torrent(str(torrent_handle.info_hash()))    
 
         if torrent_handle not in self.torrent_handles:
-            torrent_handle.set_sequential_download(True)
-            torrent_handle.resume()
             self.torrent_handles.append(torrent_handle)
-            self.bus.connection_monitor.add_torrent(str(torrent_handle.info_hash()))
 
         return { 'name': torrent_handle.name(), 'info_hash': str(torrent_handle.info_hash()) }
 
@@ -144,6 +144,7 @@ class DownloaderMonitor(cherrypy.process.plugins.Monitor):
                     torrent['total_seeds']   = torrent_status.num_complete
                     torrent['num_peers']     = torrent_status.num_peers
                     torrent['total_peers']   = torrent_status.num_incomplete
+                    torrent['info_hash']     = str(torrent_handle.info_hash())
 
                     video_file = self._get_video_file_from_torrent(torrent_handle)
                     if video_file:

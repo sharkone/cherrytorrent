@@ -31,6 +31,8 @@ class ConnectionMonitor(cherrypy.process.plugins.Monitor):
     def add_torrent(self, info_hash):
         if info_hash not in self.torrent_connections:
             self.torrent_connections[info_hash] = { 'timestamp': time.time(), 'set': set() }
+        else:
+            self.torrent_connections[info_hash]['timestamp'] = time.time()
 
     ############################################################################
     def add_video_connection(self, info_hash):
@@ -78,7 +80,7 @@ class ConnectionMonitor(cherrypy.process.plugins.Monitor):
             if not connection_set['set'] and (time.time() - connection_set['timestamp']) > 30.0:
                 connection_sets_to_remove.append(info_hash)
 
-        for connection_set in connection_sets_to_remove:
+        for info_hash in connection_sets_to_remove:
             del self.torrent_connections[info_hash]
 
 ################################################################################
