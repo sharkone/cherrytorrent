@@ -62,8 +62,7 @@ class DownloaderMonitor(cherrypy.process.plugins.Monitor):
         self.bus.log('[Downloader] Stopping session')
 
         for torrent_handle in self.torrent_handles:
-            remove_torrent_flags = libtorrent.options_t.delete_files if not self.torrent_config['keep_files'] else 0
-            self.session.remove_torrent(torrent_handle, remove_torrent_flags)
+            self.remove_torrent(torrent_handle)
 
         self.session.stop_natpmp()
         self.session.stop_upnp()
@@ -88,6 +87,12 @@ class DownloaderMonitor(cherrypy.process.plugins.Monitor):
             self.torrent_handles.append(torrent_handle)
 
         return { 'name': torrent_handle.name(), 'info_hash': str(torrent_handle.info_hash()) }
+
+    ############################################################################
+    def remove_torrent(self, torrent_handle):
+        remove_torrent_flags = libtorrent.options_t.delete_files if not self.torrent_config['keep_files'] else 0
+        self.session.remove_torrent(torrent_handle, remove_torrent_flags)
+        self.torrent_handles.remove(torrent_handle)
 
     ############################################################################
     def get_status(self):
@@ -208,8 +213,7 @@ class DownloaderMonitor(cherrypy.process.plugins.Monitor):
 
                     if not video_file:
                         self.bus.log('[Downloader] No video file found, removing torrent')
-                        self.session.remove_torrent(alert.handle)
-                        self.torrent_handles.remove(alert.handle)
+                        self.remove_torrent(torrent_handle)
 
     ############################################################################
     def _get_video_file_from_torrent(self, torrent_handle):
