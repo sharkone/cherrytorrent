@@ -20,6 +20,9 @@ class DownloaderMonitor(cherrypy.process.plugins.Monitor):
         self.torrent_handles = []
         self.last_cleanup    = time.time()
 
+        self.expected_alert_types    = []
+        self.expected_alert_received = False
+
     ############################################################################
     def start(self):
         cherrypy.process.plugins.Monitor.start(self)
@@ -64,8 +67,9 @@ class DownloaderMonitor(cherrypy.process.plugins.Monitor):
 
         self.bus.log('[Downloader] Stopping session')
 
-        for torrent_handle in self.torrent_handles:
-            self.remove_torrent(torrent_handle)
+        torrent_handles_to_remove = list(self.torrent_handles)
+        for torrent_handle in torrent_handles_to_remove:
+            self.remove_torrent(torrent_handle, True)
 
         self.session.stop_natpmp()
         self.session.stop_upnp()
@@ -73,7 +77,6 @@ class DownloaderMonitor(cherrypy.process.plugins.Monitor):
         self.session.stop_dht()
 
         self.monitor_running = False
-        time.sleep(1)
         cherrypy.process.plugins.Monitor.stop(self)
 
     ############################################################################
@@ -95,9 +98,17 @@ class DownloaderMonitor(cherrypy.process.plugins.Monitor):
         return { 'name': torrent_handle.name(), 'info_hash': str(torrent_handle.info_hash()) }
 
     ############################################################################
-    def remove_torrent(self, torrent_handle):
+    def remove_torrent(self, torrent_handle, wait_for_alert=False):
         remove_torrent_flags = libtorrent.options_t.delete_files if not self.torrent_config['keep_files'] else 0
         self.session.remove_torrent(torrent_handle, remove_torrent_flags)
+
+        if wait_for_alert:
+            self.expected_alert_received = False
+            self.expected_alert_types    = ['torrent_removed_alert'] if self.torrent_config['keep_files'] else ['torrent_deleted_alert', 'torrent_delete_failed_alert']
+            
+            while not self.expected_alert_received:
+                time.sleep(0.1)
+
         self.torrent_handles.remove(torrent_handle)
 
     ############################################################################
@@ -239,6 +250,11 @@ class DownloaderMonitor(cherrypy.process.plugins.Monitor):
                 self.remove_paused_torrents()
                 self.last_cleanup = time.time()
 
+            self._alert_pump()
+
+    ############################################################################
+    def _alert_pump(self):
+        while True:
             self.session.wait_for_alert(1000)
             alert = self.session.pop_alert()
             if alert:
@@ -253,6 +269,14 @@ class DownloaderMonitor(cherrypy.process.plugins.Monitor):
                     if not video_file:
                         self.bus.log('[Downloader] No video file found, removing torrent')
                         self.remove_torrent(torrent_handle)
+
+                elif alert.what() in self.expected_alert_types:
+                    self.expected_alert_received = True
+                    self.expected_alert_types    = []
+                    break
+
+            if not self.expected_alert_types:
+                break
 
     ############################################################################
     def _get_video_file_from_torrent(self, torrent_handle):
