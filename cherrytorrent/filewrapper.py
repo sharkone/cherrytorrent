@@ -10,9 +10,11 @@ class FileWrapper(io.RawIOBase):
     def __init__(self, bus, torrent_handle, torrent_file):
         self.bus            = bus
         self.torrent_handle = torrent_handle
+        self.piece_length   = self.torrent_handle.get_torrent_info().piece_length()
         self.torrent_file   = torrent_file
 
-        self.path = os.path.join(self.torrent_handle.save_path()[:-1], torrent_file.path)
+        #self.path = os.path.join(self.torrent_handle.save_path()[:-1], torrent_file.path)
+        self.path = os.path.join(self.torrent_handle.save_path(), torrent_file.path)
         self.size = torrent_file.size
 
         while not os.path.isfile(self.path):
@@ -46,7 +48,7 @@ class FileWrapper(io.RawIOBase):
         
         result = ''
         while size > 0:
-            part_read_size = min(size, self.torrent_handle.get_torrent_info().piece_length())
+            part_read_size = min(size, self.piece_length)
             piece_index    = utils.piece_from_offset(self.torrent_handle, self.torrent_file.offset + self.file.tell() + part_read_size)
             self._wait_for_piece(piece_index)
             result = result + self.file.read(part_read_size)
