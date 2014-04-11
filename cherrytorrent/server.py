@@ -83,6 +83,11 @@ class ConnectionMonitor(cherrypy.process.plugins.Monitor):
         for info_hash in connection_sets_to_remove:
             del self.torrent_connections[info_hash]
 
+        current_process = psutil.Process()
+        if (not current_process.parent() or current_process.parent().pid == 1) or (not current_process.parent().parent() or current_process.parent().parent().pid == 1):
+            self.bus.log('Parent process is dead, exiting')
+            cherrypy.engine.exit()
+
 ################################################################################
 class Server:
     ############################################################################
