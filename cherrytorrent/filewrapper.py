@@ -12,7 +12,7 @@ class FileWrapper(io.RawIOBase):
         self.torrent_handle = torrent_handle
         self.torrent_file   = torrent_file
 
-        self.path = os.path.join(self.torrent_handle.save_path(), torrent_file.path)
+        self.path = os.path.join(self.torrent_handle.save_path()[:-1], torrent_file.path)
         self.size = torrent_file.size
 
         while not os.path.isfile(self.path):
