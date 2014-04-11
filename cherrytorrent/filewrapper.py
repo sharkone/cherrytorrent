@@ -1,6 +1,7 @@
 ################################################################################
 import io
 import os
+import string
 import time
 import utils
 
@@ -13,8 +14,11 @@ class FileWrapper(io.RawIOBase):
         self.piece_length   = self.torrent_handle.get_torrent_info().piece_length()
         self.torrent_file   = torrent_file
 
-        #self.path = os.path.join(self.torrent_handle.save_path()[:-1], torrent_file.path)
-        self.path = os.path.join(self.torrent_handle.save_path(), torrent_file.path)
+        # Weird bad character on MacOSX
+        save_path = self.torrent_handle.save_path()
+        save_path = save_path if save_path[-1] in string.printable else save_path[:-1]
+
+        self.path = os.path.join(save_path, torrent_file.path)
         self.size = torrent_file.size
 
         while not os.path.isfile(self.path):
