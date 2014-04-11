@@ -5,8 +5,81 @@ import downloader
 import json
 import mimetypes
 import os
+import psutil
 import static
 import time
+
+################################################################################
+class ConnectionMonitor(cherrypy.process.plugins.Monitor):
+    ############################################################################
+    def __init__(self, bus, http_config):
+        cherrypy.process.plugins.Monitor.__init__(self, bus, self._background_task, frequency=1)
+
+        self.http_config         = http_config
+        self.connections         = []
+        self.torrent_connections = {}
+
+    ############################################################################
+    def start(self):
+        cherrypy.process.plugins.Monitor.start(self)
+
+    ############################################################################
+    def stop(self):
+        cherrypy.process.plugins.Monitor.stop(self)
+
+    ############################################################################
+    def add_torrent(self, info_hash):
+        if info_hash not in self.torrent_connections:
+            self.torrent_connections[info_hash] = { 'timestamp': time.time(), 'set': set() }
+
+    ############################################################################
+    def add_video_connection(self, info_hash):
+        current_connections = self._get_connections()
+        for connection in current_connections:
+            if connection not in self.connections:
+                if info_hash not in self.torrent_connections:
+                    self.torrent_connections[info_hash] = { 'timestamp': time.time(), 'set': set() }
+
+                if connection not in self.torrent_connections[info_hash]:
+                    self.torrent_connections[info_hash]['set'].add(connection)
+
+                self.connections.append(connection)
+
+    ############################################################################
+    def has_video_connections(self, info_hash):
+        return info_hash in self.torrent_connections
+
+    ############################################################################
+    def _get_connections(self):
+        connections = []
+        current_process = psutil.Process()
+        for connection in current_process.connections('tcp'):
+            if connection.laddr[1] == self.http_config['port'] and connection.status == 'ESTABLISHED':
+                connections.append(connection)
+        return connections
+
+    ############################################################################
+    def _background_task(self):
+        current_connections = self._get_connections()
+        
+        connection_sets_to_remove = []
+        for info_hash, connection_set in self.torrent_connections.iteritems():
+            connections_to_remove = []
+
+            for connection in connection_set['set']:
+                if connection not in current_connections:
+                    connections_to_remove.append(connection)
+
+            for connection in connections_to_remove:
+                connection_set['timestamp'] = time.time()
+                connection_set['set'].remove(connection)
+                self.connections.remove(connection)
+
+            if not connection_set['set'] and (time.time() - connection_set['timestamp']) > 30.0:
+                connection_sets_to_remove.append(info_hash)
+
+        for connection_set in connection_sets_to_remove:
+            del self.torrent_connections[info_hash]
 
 ################################################################################
 class Server:
@@ -15,7 +88,10 @@ class Server:
         self.http_config    = http_config
         self.torrent_config = torrent_config
 
-        cherrypy.engine.downloader_monitor = downloader.DownloaderMonitor(cherrypy.engine, self.torrent_config)
+        cherrypy.engine.connection_monitor = ConnectionMonitor(cherrypy.engine, self.http_config)
+        cherrypy.engine.connection_monitor.subscribe()
+
+        cherrypy.engine.downloader_monitor = downloader.DownloaderMonitor(cherrypy.engine, self.http_config, self.torrent_config)
         cherrypy.engine.downloader_monitor.subscribe()
 
         self.log_path = os.path.abspath(os.path.join(self.http_config['log_dir'], 'cherrytorrent.log'))
@@ -60,6 +136,8 @@ class ServerRoot:
     ############################################################################
     @cherrypy.expose
     def video(self, info_hash):
+        cherrypy.engine.connection_monitor.add_video_connection(info_hash)
+
         if cherrypy.engine.downloader_monitor.is_video_file_ready_from_info_hash(info_hash, True):
             video_file   = cherrypy.engine.downloader_monitor.get_video_file(info_hash)
             content_type = mimetypes.types_map.get(os.path.splitext(video_file.path), None)

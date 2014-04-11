@@ -9,13 +9,16 @@ import utils
 ################################################################################
 class DownloaderMonitor(cherrypy.process.plugins.Monitor):
     ############################################################################
-    def __init__(self, bus, torrent_config):
+    def __init__(self, bus, http_config, torrent_config):
         cherrypy.process.plugins.Monitor.__init__(self, bus, self._background_task, frequency=1)
 
+        self.http_config     = http_config
         self.torrent_config  = torrent_config
         self.session         = None
+        self.connections     = []
         self.monitor_running = False
         self.torrent_handles = []
+        self.last_cleanup    = time.time()
 
     ############################################################################
     def start(self):
@@ -79,12 +82,15 @@ class DownloaderMonitor(cherrypy.process.plugins.Monitor):
         add_torrent_params['url']          = uri
         add_torrent_params['save_path']    = download_dir
         add_torrent_params['storage_mode'] = libtorrent.storage_mode_t.storage_mode_sparse
+        add_torrent_params['auto_managed'] = False
 
         torrent_handle = self.session.add_torrent(add_torrent_params)
 
         if torrent_handle not in self.torrent_handles:
             torrent_handle.set_sequential_download(True)
+            torrent_handle.resume()
             self.torrent_handles.append(torrent_handle)
+            self.bus.connection_monitor.add_torrent(str(torrent_handle.info_hash()))
 
         return { 'name': torrent_handle.name(), 'info_hash': str(torrent_handle.info_hash()) }
 
@@ -95,19 +101,40 @@ class DownloaderMonitor(cherrypy.process.plugins.Monitor):
         self.torrent_handles.remove(torrent_handle)
 
     ############################################################################
+    def remove_paused_torrents(self):
+        torrent_handles_to_remove = []
+        for torrent_handle in self.torrent_handles:
+            if torrent_handle.status().paused:
+                torrent_handles_to_remove.append(torrent_handle)
+
+        for torrent_handle in torrent_handles_to_remove:
+            self.remove_torrent(torrent_handle)
+
+    ############################################################################
     def get_status(self):
         result = {}
 
         if self.session:
-            result['session']             = self.torrent_config
-            result['session']['torrents'] = []
+            result['session'] = self.torrent_config
+            
+            result['session']['connection_sets'] = []
+            for info_hash, connection_set in self.bus.connection_monitor.torrent_connections.iteritems():
+                connection_set_status = { 'info_hash': info_hash, 'timestamp': connection_set['timestamp'], 'connections':[] }
+                
+                for connection in connection_set['set']:
+                    connection_status = { 'info_hash': info_hash, 'remote_ip': connection.raddr[0], 'remote_port': connection.raddr[1] }
+                    connection_set_status['connections'].append(connection_status)
 
+                result['session']['connection_sets'].append(connection_set_status)
+
+            result['session']['torrents'] = []
             for torrent_handle in self.torrent_handles:
                 torrent_status = torrent_handle.status()
 
                 torrent = {}
                 
                 try:
+                    torrent['paused']        = torrent_status.paused
                     torrent['state']         = str(torrent_status.state)
                     torrent['state_index']   = int(torrent_status.state)
                     torrent['progress']      = math.trunc(torrent_status.progress * 100.0) / 100.0
@@ -187,6 +214,8 @@ class DownloaderMonitor(cherrypy.process.plugins.Monitor):
             if str(torrent_handle.info_hash()) == info_hash:
                 video_file = self._get_video_file_from_torrent(torrent_handle)
                 if video_file:
+                    if torrent_handle.status().paused:
+                        torrent_handle.resume()
                     return filewrapper.FileWrapper(self.bus, torrent_handle, video_file)
                 else:
                     return None
@@ -200,6 +229,15 @@ class DownloaderMonitor(cherrypy.process.plugins.Monitor):
             time.sleep(0.1)
 
         while self.monitor_running:
+            for torrent_handle in self.torrent_handles:
+                if not self.bus.connection_monitor.has_video_connections(str(torrent_handle.info_hash())):
+                    if not torrent_handle.status().paused:
+                        torrent_handle.pause()
+
+            if (time.time() - self.last_cleanup) > 18000: # 5 hours
+                self.remove_paused_torrents()
+                self.last_cleanup = time.time()
+
             self.session.wait_for_alert(1000)
             alert = self.session.pop_alert()
             if alert:
