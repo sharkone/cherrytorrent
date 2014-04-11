@@ -5,4 +5,4 @@ A streaming [BitTorrent](http://www.bittorrent.com) client based on [CherryPy](h
 
 -------------
 
-[![Build Status](https://travis-ci.org/sharkone/cherrytorrent.svg?branch=master)](https://travis-ci.org/sharkone/cherrytorrent)
+[![Build Status](https://travis-ci.org/sharkone/cherrytorrent.svg?branch=daemon)](https://travis-ci.org/sharkone/cherrytorrent)
