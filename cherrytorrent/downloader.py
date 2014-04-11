@@ -61,7 +61,9 @@ class DownloaderMonitor(cherrypy.process.plugins.Monitor):
         add_torrent_params['url']          = self.torrent_config['uri']
         add_torrent_params['save_path']    = self.torrent_config['download_dir']
         add_torrent_params['storage_mode'] = libtorrent.storage_mode_t.storage_mode_sparse
-        self.session.add_torrent(add_torrent_params)
+        
+        self.torrent_handle = self.session.add_torrent(add_torrent_params)
+        self.torrent_handle.set_sequential_download(True)
 
     ############################################################################
     def stop(self):
@@ -185,33 +187,30 @@ class DownloaderMonitor(cherrypy.process.plugins.Monitor):
                 elif isinstance(alert, libtorrent.tracker_error_alert):
                     pass
                 elif alert.what() == 'cache_flushed_alert':
-                    # TODO: Need to fix python bindings to properly expose this alert
                     pass
 
                 # Session alerts
-                elif isinstance(alert, libtorrent.listen_succeeded_alert):
+                elif alert.what() == 'listen_succeeded_alert':
                     # TODO: Need to fix python bindings to properly expose endpoint as tuple
                     self.bus.log('[Downloader] Session {0}'.format(alert.message()))
 
                 # Torrent alerts
-                elif isinstance(alert, libtorrent.torrent_added_alert):
+                elif alert.what() == 'torrent_added_alert':
                     self.bus.log('[Downloader] Torrent added')
-                    self.torrent_handle = alert.handle
-                    self.torrent_handle.set_sequential_download(True)
-                elif isinstance(alert, libtorrent.torrent_removed_alert):
+                elif alert.what() == 'torrent_removed_alert':
                     self.bus.log('[Downloader] Torrent removed')
                     self.torrent_handle = self.torrent_handle if not self.torrent_config['keep_files'] else None
-                elif isinstance(alert, libtorrent.torrent_resumed_alert):
+                elif alert.what() == 'torrent_resumed_alert':
                     self.bus.log('[Downloader] Torrent resumed')
 
-                elif isinstance(alert, libtorrent.torrent_deleted_alert):
+                elif alert.what() == 'torrent_deleted_alert':
                     self.bus.log('[Downloader] Torrent files deleted')
                     self.torrent_handle = None
-                elif isinstance(alert, libtorrent.torrent_delete_failed_alert):
+                elif alert.what() == 'torrent_delete_failed_alert':
                     self.bus.log('[Downloader] Torrent files deletion failed')
                     self.torrent_handle = None
 
-                elif isinstance(alert, libtorrent.metadata_received_alert):
+                elif alert.what() == 'metadata_received_alert':
                     self.bus.log('[Downloader] Torrent metadata received')
                     self.torrent_video_file = self._get_video_torrent_file()
                     if self.torrent_video_file:
@@ -221,8 +220,8 @@ class DownloaderMonitor(cherrypy.process.plugins.Monitor):
                         self.bus.log('[Downloader] No video file found')
                         cherrypy.engine.exit()
 
-                elif isinstance(alert, libtorrent.state_changed_alert):
-                    self.bus.log('[Downloader] Torrent state changed: {0}'.format(alert.state))
+                elif alert.what() == 'state_changed_alert':
+                    self.bus.log('[Downloader] {0}'.format(alert.message()))
 
                 # Fallback
                 else:                    
