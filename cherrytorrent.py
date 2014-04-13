@@ -2,8 +2,6 @@
 import argparse
 import cherrytorrent
 
-from cherrytorrent import server
-
 ################################################################################
 def main():
     arg_parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -27,7 +25,7 @@ def main():
                         'keep_files':           args.torrent_keep_files
                      }
     
-    server = cherrytorrent.server.Server(http_config, torrent_config)
+    server = cherrytorrent.Server(http_config, torrent_config)
     server.run()
 
 ################################################################################
