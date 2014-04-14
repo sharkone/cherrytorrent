@@ -1,2 +1,2 @@
-cherrypy
+cherrypy==3.2.5
 psutil
