@@ -2,6 +2,7 @@
 import cherrypy
 import downloader
 import json
+import logging
 import mimetypes
 import os
 import psutil
